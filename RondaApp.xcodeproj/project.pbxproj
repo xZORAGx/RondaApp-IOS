@@ -45,6 +45,31 @@
 			path = RondaAppUITests;
 			sourceTree = "<group>";
 		};
+		630922FA2E206C8000F3BF73 /* App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = App;
+			sourceTree = "<group>";
+		};
+		630922FE2E206CC000F3BF73 /* Core */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Core;
+			sourceTree = "<group>";
+		};
+		630923032E206D0300F3BF73 /* Features */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Features;
+			sourceTree = "<group>";
+		};
+		630923042E206D1E00F3BF73 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		630923052E206D3400F3BF73 /* Resources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Resources;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +100,11 @@
 		630922C72E20382A00F3BF73 = {
 			isa = PBXGroup;
 			children = (
+				630922FA2E206C8000F3BF73 /* App */,
+				630923052E206D3400F3BF73 /* Resources */,
+				630923042E206D1E00F3BF73 /* Shared */,
+				630923032E206D0300F3BF73 /* Features */,
+				630922FE2E206CC000F3BF73 /* Core */,
 				630922D22E20382B00F3BF73 /* RondaApp */,
 				630922E02E20382C00F3BF73 /* RondaAppTests */,
 				630922EA2E20382C00F3BF73 /* RondaAppUITests */,
@@ -109,6 +139,11 @@
 			);
 			fileSystemSynchronizedGroups = (
 				630922D22E20382B00F3BF73 /* RondaApp */,
+				630922FA2E206C8000F3BF73 /* App */,
+				630922FE2E206CC000F3BF73 /* Core */,
+				630923032E206D0300F3BF73 /* Features */,
+				630923042E206D1E00F3BF73 /* Shared */,
+				630923052E206D3400F3BF73 /* Resources */,
 			);
 			name = RondaApp;
 			packageProductDependencies = (
