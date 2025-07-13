@@ -35,4 +35,15 @@ class StorageService {
         let downloadURL = try await imageRef.downloadURL()
         return downloadURL
     }
+    func uploadProfileImage(imageData: Data, userId: String) async throws -> URL {
+            let profileImagesRef = storage.child("profile_images/\(userId).jpg")
+            
+            // Usamos metadatos para indicar que es una imagen JPEG
+            let metadata = StorageMetadata()
+            metadata.contentType = "image/jpeg"
+            
+            let _ = try await profileImagesRef.putDataAsync(imageData, metadata: metadata)
+            let downloadURL = try await profileImagesRef.downloadURL()
+            return downloadURL
+        }
 }

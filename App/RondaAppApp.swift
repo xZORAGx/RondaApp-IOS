@@ -6,25 +6,36 @@
 //
 
 import SwiftUI
-import FirebaseCore // 1. Importar Firebase
+import FirebaseCore
+import FirebaseAppCheck // ✅ 1. Importar App Check
 
-// 2. Creamos un AppDelegate para configurar Firebase
+// Usamos un AppDelegate para configurar los servicios de Firebase al arrancar.
 class AppDelegate: NSObject, UIApplicationDelegate {
   func application(_ application: UIApplication,
                    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+    
+    // ✅ 2. Configuración de App Check para MODO DEPURACIÓN (DEBUG)
+    // Este bloque le dice a Firebase que confíe en tu simulador.
+    #if DEBUG
+    let providerFactory = AppCheckDebugProviderFactory()
+    AppCheck.setAppCheckProviderFactory(providerFactory)
+    #endif
+
+    // 3. Configuración estándar de Firebase. Se ejecuta después de App Check.
     FirebaseApp.configure()
+    
     return true
   }
 }
 
 @main
 struct RondaAppApp: App {
-    // 3. Registramos el AppDelegate para que sea utilizado por SwiftUI
+    // Registramos nuestro AppDelegate para que SwiftUI lo utilice.
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
     var body: some Scene {
         WindowGroup {
-            // De momento mantenemos la ContentView, que más adelante será el LoginView
+            // RootView es el punto de entrada que decide qué pantalla mostrar.
             RootView()
         }
     }

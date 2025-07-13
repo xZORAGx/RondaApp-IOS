@@ -15,6 +15,7 @@ struct User: Identifiable, Codable {
     
     let uid: String
     let email: String?
+    var photoURL: String?
     
     // Campos que el usuario rellenará
     var username: String?

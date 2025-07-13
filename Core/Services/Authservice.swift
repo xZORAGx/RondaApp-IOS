@@ -15,7 +15,7 @@ class AuthService {
     private init() {}
     
     // MARK: - Sign In with Google
-    
+    @MainActor
     func signInWithGoogle() async throws -> AuthDataResult {
         guard let topVC = await topViewController() else {
             throw URLError(.cannotFindHost)

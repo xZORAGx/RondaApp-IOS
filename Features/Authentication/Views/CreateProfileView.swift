@@ -1,78 +1,108 @@
-//  RondaApp/Features/Authentication/Views/CreateProfileView.swift
+// Fichero: RondaApp/Features/Authentication/Views/CreateProfileView.swift
 
 import SwiftUI
+import PhotosUI
 
 struct CreateProfileView: View {
+
+    // MARK: - Properties
     
-    let user: User
-    var onProfileComplete: (String, Int) -> Void
+    // Este es el 'completion handler'. Es la función que la vista ejecutará cuando termine.
+    private let onComplete: (String, String, Data?) -> Void
     
+    // Estados internos de la vista para los campos del formulario
     @State private var username: String = ""
     @State private var ageString: String = ""
-    @State private var errorMessage: String?
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var selectedImageData: Data?
+    
+    @State private var isLoading = false
+    
+    // MARK: - Initializer
+    
+    // ✅ ESTE ES EL INICIALIZADOR CORRECTO
+    // Acepta un 'user' y el 'closure' que le pasa la RootView.
+    init(user: User, onComplete: @escaping (String, String, Data?) -> Void) {
+        // No necesitamos guardar el 'user' porque no lo usamos aquí.
+        self.onComplete = onComplete
+    }
+    
+    // MARK: - Body
     
     var body: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            
-            Text("Crea tu Perfil")
+        VStack(spacing: 30) {
+            Text("Completa tu perfil")
                 .font(.largeTitle)
                 .fontWeight(.bold)
             
-            Text("Elige un nombre de usuario con el que te verán tus amigos.")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-
-            TextField("Nombre de usuario", text: $username)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding(.horizontal)
-            
-            TextField("Edad", text: $ageString)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .keyboardType(.numberPad)
-                .padding(.horizontal)
-            
-            if let errorMessage = errorMessage {
-                Text(errorMessage)
-                    .foregroundColor(.red)
-                    .font(.caption)
-                    .padding(.horizontal)
+            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                profileImagePlaceholder
+            }
+            .onChange(of: selectedPhotoItem) { _, newItem in
+                Task {
+                    if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                        selectedImageData = data
+                    }
+                }
             }
             
-            Button(action: validateAndSubmit) {
-                Text("Guardar y Entrar")
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
+            VStack(spacing: 16) {
+                TextField("Tu nombre de usuario", text: $username)
+                TextField("Tu edad", text: $ageString)
+                    .keyboardType(.numberPad)
             }
-            .padding()
+            .modifier(CustomTextFieldModifier(icon: nil))
             
             Spacer()
+            
+            Button(action: saveProfile) {
+                if isLoading {
+                    ProgressView()
+                } else {
+                    Text("Guardar y Empezar")
+                }
+            }
+            .font(.headline)
+            .fontWeight(.bold)
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(isFormValid() ? Color.blue : Color.gray)
+            .foregroundColor(.white)
+            .cornerRadius(15)
+            .disabled(!isFormValid() || isLoading)
         }
         .padding()
     }
     
-    private func validateAndSubmit() {
-        guard !username.trimmingCharacters(in: .whitespaces).isEmpty else {
-            errorMessage = "El nombre de usuario no puede estar vacío."
-            return
-        }
-        
-        guard let age = Int(ageString), age >= 18 else {
-            errorMessage = "Debes tener 18 años o más para usar la aplicación."
-            return
-        }
-        
-        errorMessage = nil
-        onProfileComplete(username, age)
+    // MARK: - Helper Functions & Views
+    
+    private func saveProfile() {
+        isLoading = true
+        // ✅ Cuando se pulsa el botón, llamamos al closure y pasamos los datos.
+        onComplete(username, ageString, selectedImageData)
     }
-}
-
-#Preview {
-    CreateProfileView(user: User(uid: "123", email: "test@test.com"), onProfileComplete: { _,_  in })
+    
+    private func isFormValid() -> Bool {
+        return !username.trimmingCharacters(in: .whitespaces).isEmpty && Int(ageString) != nil
+    }
+    
+    @ViewBuilder
+    private var profileImagePlaceholder: some View {
+        if let data = selectedImageData, let uiImage = UIImage(data: data) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 150, height: 150)
+                .clipShape(Circle())
+        } else {
+            VStack {
+                Image(systemName: "camera.fill").font(.largeTitle)
+                Text("Añadir foto").font(.caption)
+            }
+            .foregroundColor(.secondary)
+            .frame(width: 150, height: 150)
+            .background(Color.secondary.opacity(0.1))
+            .clipShape(Circle())
+        }
+    }
 }

@@ -1,12 +1,4 @@
-//
-//  RootView.swift
-//  RondaApp
-//
-//  Created by David Roger Alvarez on 11/7/25.
-//
-
-//  RondaApp/App/RootView.swift
-
+// Fichero: RondaApp/App/RootView.swift
 
 import SwiftUI
 
@@ -16,22 +8,35 @@ struct RootView: View {
     
     var body: some View {
         switch sessionManager.sessionState {
+            
+        case .checking:
+            ProgressView()
+                .controlSize(.large)
+            
         case .loggedOut:
-            LoginView()
-        
+            LoginView(sessionManager: sessionManager)
+            
         case .needsPolicyAcceptance(let firebaseUser):
             PrivacyPolicyView {
                 sessionManager.acceptPolicy(firebaseUser: firebaseUser)
             }
             
         case .needsProfileCreation(let user):
-            CreateProfileView(user: user) { username, age in
-                sessionManager.completeProfile(user: user, username: username, age: age)
+            CreateProfileView(user: user) { username, age, imageData in
+                sessionManager.completeProfile(
+                    user: user,
+                    username: username,
+                    age: age,
+                    imageData: imageData
+                )
             }
             
         case .loggedIn(let user):
-            // Reemplazamos MainAppView por nuestra nueva pantalla principal
             RoomListView(user: user, sessionManager: sessionManager)
         }
     }
+}
+
+#Preview {
+    RootView()
 }
