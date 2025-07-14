@@ -6,37 +6,81 @@ import Combine
 @MainActor
 class RoomDetailViewModel: ObservableObject {
     
+    // MARK: - Published Properties
     @Published var leaderboardEntries: [LeaderboardEntry] = []
     @Published var room: Room
     @Published var errorMessage: String?
     
+    // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
     private let roomService = RoomService.shared
     private let userService = UserService.shared
     private let user: User
     
+    // MARK: - Initializer
     init(room: Room, user: User) {
         self.room = room
         self.user = user
-        
-        // --- TRAZA 1 ---
-        print("✅ VM INIT: ViewModel inicializado para la sala '\(room.title)'")
-        
         setupRoomListener()
-        fetchUsersForLeaderboard()
     }
+    
+    // MARK: - Computed Properties
+    var isUserAdmin: Bool {
+        return user.uid == room.ownerId
+    }
+    
+    // MARK: - Public Methods
+    
+    /// Guarda la lista actual de bebidas en Firestore.
+    /// Es la función central para persistir los cambios.
+    func saveDrinkChanges() async throws {
+        guard let roomId = room.id else {
+            throw URLError(.badURL)
+        }
+        try await roomService.updateDrinks(forRoomId: roomId, with: self.room.drinks)
+    }
+    
+    /// Añade una nueva bebida a la lista local y la guarda inmediatamente en Firestore.
+    func addNewDrink() {
+        // Creamos una bebida con un ID único para poder identificarla en la UI.
+        let newDrink = Drink(id: UUID().uuidString, name: "", points: 1, emoji: "")
+        self.room.drinks.append(newDrink)
+    }
+
+    /// Elimina una o más bebidas de la lista local y guarda los cambios inmediatamente en Firestore.
+    func deleteDrink(at offsets: IndexSet) async {
+        let originalDrinks = self.room.drinks
+        self.room.drinks.remove(atOffsets: offsets)
+        
+        do {
+            try await saveDrinkChanges()
+        } catch {
+            self.errorMessage = "Error al eliminar la bebida: \(error.localizedDescription)"
+            // Si falla el guardado, restauramos la lista original para mantener la consistencia.
+            self.room.drinks = originalDrinks
+        }
+    }
+    
+    /// Registra que un usuario ha consumido una bebida.
+    func add(drink: Drink) {
+        Task {
+            do {
+                try await roomService.addDrinkForUser(userId: user.uid, drinkId: drink.id, in: room)
+            } catch {
+                self.errorMessage = "No se pudo añadir la bebida: \(error.localizedDescription)"
+            }
+        }
+    }
+    
+    // MARK: - Private Helper Methods
     
     private func setupRoomListener() {
         roomService.listenToRoomUpdates(roomId: room.id ?? "ID_NULO")
             .sink { completion in
                 if case .failure(let error) = completion {
-                    // --- TRAZA DE ERROR ---
-                    print("❌ VM LISTENER ERROR: El listener falló con error: \(error.localizedDescription)")
                     self.errorMessage = "Error de conexión: \(error.localizedDescription)"
                 }
             } receiveValue: { [weak self] updatedRoom in
-                // --- TRAZA 2 ---
-                print("🔄 VM LISTENER UPDATE: Datos de la sala actualizados en tiempo real.")
                 self?.room = updatedRoom
                 self?.fetchUsersForLeaderboard()
             }
@@ -44,11 +88,7 @@ class RoomDetailViewModel: ObservableObject {
     }
     
     private func fetchUsersForLeaderboard() {
-        // --- TRAZA 3 ---
-        print("🚀 VM FETCH: Iniciando carga del leaderboard. Miembros a buscar: \(room.memberIds)")
-        
         guard !room.memberIds.isEmpty else {
-            print("⚠️ VM FETCH WARNING: La lista de 'memberIds' está vacía. No se carga nada.")
             self.leaderboardEntries = []
             return
         }
@@ -56,37 +96,29 @@ class RoomDetailViewModel: ObservableObject {
         Task {
             do {
                 let users = try await userService.fetchUsers(withIDs: room.memberIds)
-                // --- TRAZA 4 ---
-                print("👍 VM FETCH SUCCESS: Se encontraron \(users.count) perfiles de usuario.")
                 
-                var entries = users.map { user in
-                    LeaderboardEntry(
+                var entries = users.map { user -> LeaderboardEntry in
+                    let userDrinkCounts = self.room.scores[user.uid] ?? [:]
+                    
+                    let totalScore = userDrinkCounts.reduce(0) { currentScore, drinkCountPair in
+                        let (drinkId, count) = drinkCountPair
+                        let pointsPerDrink = self.room.drinks.first { $0.id == drinkId }?.points ?? 0
+                        return currentScore + (count * pointsPerDrink)
+                    }
+                    
+                    return LeaderboardEntry(
                         user: user,
-                        score: self.room.scores?[user.uid] ?? 0
+                        score: totalScore,
+                        userScores: userDrinkCounts
                     )
                 }
                 
                 entries.sort { $0.score > $1.score }
                 
                 self.leaderboardEntries = entries
-                // --- TRAZA 5 ---
-                print("✅ VM FETCH COMPLETE: El leaderboard se ha procesado y actualizado con \(entries.count) entradas.")
                 
             } catch {
-                // --- TRAZA DE ERROR ---
-                print("❌ VM FETCH ERROR: Fallo al buscar los perfiles de usuario: \(error.localizedDescription)")
                 self.errorMessage = "Error al cargar los miembros: \(error.localizedDescription)"
-            }
-        }
-    }
-    
-    func addDrink() {
-        Task {
-            do {
-                try await roomService.addDrinkForUser(userId: user.uid, in: room)
-            } catch {
-                print("❌ VM ADDRINK ERROR: \(error.localizedDescription)")
-                self.errorMessage = "No se pudo añadir la bebida: \(error.localizedDescription)"
             }
         }
     }

@@ -11,7 +11,9 @@ struct RoomListView: View {
     
     @State private var isShowingCreateSheet = false
     @State private var roomToLeave: Room?
-    
+    @State private var isShowingJoinAlert = false // Estado para mostrar/ocultar la alerta
+    @State private var joinCode: String = ""      // Estado para guardar el código introducido
+
     private let user: User
     
     // MARK: - Initializer
@@ -56,6 +58,21 @@ struct RoomListView: View {
             })
             .sheet(isPresented: $isShowingCreateSheet) {
                 CreateRoomView(viewModel: viewModel)
+            }
+            // ✅ ALERTA PARA UNIRSE A UNA SALA
+            .alert("Unirse a una Sala", isPresented: $isShowingJoinAlert) {
+                TextField("Código de la sala", text: $joinCode)
+                    .autocapitalization(.allCharacters)
+                
+                Button("Cancelar", role: .cancel) {
+                    joinCode = ""
+                }
+                Button("Unirse") {
+                    viewModel.joinRoom(withCode: joinCode)
+                    joinCode = ""
+                }
+            } message: {
+                Text("Introduce el código de 6 caracteres para unirte a la sala de tus amigos.")
             }
         }
     }
@@ -112,7 +129,8 @@ struct RoomListView: View {
     
     private var actionButtons: some View {
         VStack(spacing: 12) {
-            Button(action: { /* TODO: Lógica para unirse a sala */ }) {
+            // ✅ ACCIÓN DEL BOTÓN ACTUALIZADA
+            Button(action: { isShowingJoinAlert = true }) {
                 Label("Unirse a una Sala", systemImage: "person.badge.plus")
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)

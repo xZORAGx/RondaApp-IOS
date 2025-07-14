@@ -3,6 +3,8 @@
 import Foundation
 import FirebaseAuth
 import Combine
+import AuthenticationServices // ✅ Añadido
+import CryptoKit            // ✅ Añadido
 
 @MainActor
 class SessionManager: ObservableObject {
@@ -27,7 +29,8 @@ class SessionManager: ObservableObject {
     private var authStateHandler: AuthStateDidChangeListenerHandle?
     private let userService = UserService.shared
     private let authService = AuthService.shared
-    
+    private var currentNonce: String? // ✅ Añadido para Apple Sign In
+
     init() {
         listenToAuthState()
     }
@@ -54,24 +57,17 @@ class SessionManager: ObservableObject {
             return
         }
         
-        // Intentamos cargar el usuario desde Firestore
         do {
             let appUser = try await userService.fetchUser(withId: firebaseUser.uid)
             
-            // Si el usuario existe, comprobamos su estado de onboarding
             if !appUser.hasAcceptedPolicy {
-                // No ha aceptado la política -> necesita aceptar la política
                 self.sessionState = .needsPolicyAcceptance(firebaseUser: firebaseUser)
             } else if !appUser.hasCompletedProfile {
-                // Aceptó la política pero no ha completado el perfil -> necesita crear el perfil
                 self.sessionState = .needsProfileCreation(user: appUser)
             } else {
-                // Ha completado todo -> está logueado
                 self.sessionState = .loggedIn(user: appUser)
             }
         } catch {
-            // Si hay un error al cargar (probablemente porque no existe), es un NUEVO USUARIO.
-            // Lo llevamos al primer paso: aceptar la política.
             print("Usuario no encontrado en Firestore (UID: \(firebaseUser.uid)). Se considera un nuevo usuario.")
             self.sessionState = .needsPolicyAcceptance(firebaseUser: firebaseUser)
         }
@@ -92,6 +88,36 @@ class SessionManager: ObservableObject {
             self.isLoading = false
         }
     }
+
+    // ✅ --- FUNCIONES NUEVAS PARA APPLE SIGN IN ---
+    
+    func handleAppleSignInRequest(_ request: ASAuthorizationAppleIDRequest) {
+        let nonce = randomNonceString()
+        currentNonce = nonce
+        request.requestedScopes = [.fullName, .email]
+        request.nonce = sha256(nonce)
+    }
+
+    func handleAppleSignInCompletion(_ result: Result<ASAuthorization, Error>) {
+        self.isLoading = true
+        self.errorMessage = nil
+        
+        Task {
+            do {
+                guard let nonce = currentNonce else {
+                    fatalError("Nonce inválido. No se puede proceder con la autenticación.")
+                }
+                let _ = try await authService.signInWithApple(result: result, nonce: nonce)
+                
+            } catch is CancellationError {
+                // Si es un error de cancelación por parte del usuario, no mostramos alerta.
+                print("Inicio de sesión con Apple cancelado por el usuario.")
+            } catch {
+                self.errorMessage = "Error con Apple Sign In: \(error.localizedDescription)"
+            }
+            self.isLoading = false
+        }
+    }
     
     func signOut() {
         do {
@@ -102,39 +128,30 @@ class SessionManager: ObservableObject {
         }
     }
     
-    // Fichero: RondaApp/Core/Managers/SessionManager.swift
+    // --- Lógica de Onboarding ---
 
-    // Reemplaza tu función `acceptPolicy` por esta versión mejorada.
     func acceptPolicy(firebaseUser: FirebaseAuth.User) {
         Task {
-            self.isLoading = true // Mostramos el indicador de carga
+            self.isLoading = true
             self.errorMessage = nil
             
             do {
-                // 1. Creamos un usuario parcial con la política aceptada.
                 let partialUser = User(
                     uid: firebaseUser.uid,
                     email: firebaseUser.email,
-                    hasAcceptedPolicy: true, // Marcamos la política como aceptada
-                    hasCompletedProfile: false // El perfil aún no está completo
+                    hasAcceptedPolicy: true,
+                    hasCompletedProfile: false
                 )
-                
-                // 2. Guardamos este usuario inicial en Firestore.
                 try await UserService.shared.createInitialUser(user: partialUser)
-                
-                // 3. ✅ ¡LA CLAVE ESTÁ AQUÍ!
-                //    Forzamos una re-evaluación del estado del usuario.
-                //    Esto hará que se lea el nuevo perfil desde Firestore y se actualice la UI.
                 await handleUserChange(firebaseUser: firebaseUser)
                 
             } catch {
-                // Manejo de errores
                 let errorMessageText = "No se pudo guardar la aceptación de la política. Por favor, inténtalo de nuevo. Error: \(error.localizedDescription)"
                 print(errorMessageText)
                 self.errorMessage = errorMessageText
             }
             
-            self.isLoading = false // Ocultamos el indicador de carga
+            self.isLoading = false
         }
     }
     
@@ -143,14 +160,12 @@ class SessionManager: ObservableObject {
             self.isLoading = true
             self.errorMessage = nil
             
-            // Validamos que la edad sea un número válido antes de continuar.
             guard let ageInt = Int(age) else {
                 self.errorMessage = "La edad debe ser un número válido."
                 self.isLoading = false
                 return
             }
             
-            // Validamos que tengamos un usuario autenticado activo.
             guard let firebaseUser = Auth.auth().currentUser else {
                 self.errorMessage = "No se ha encontrado un usuario activo. Por favor, reinicia la aplicación."
                 self.isLoading = false
@@ -158,18 +173,12 @@ class SessionManager: ObservableObject {
             }
             
             do {
-                // 1. Llamamos al servicio para que suba la imagen (si la hay)
-                //    y actualice los datos del usuario en Firestore.
                 try await UserService.shared.updateUserProfile(
                     userId: user.uid,
                     username: username,
                     age: ageInt,
                     imageData: imageData
                 )
-                
-                // 2. ✅ ¡LA SOLUCIÓN DEFINITIVA!
-                //    Una vez que el perfil está completo en la base de datos,
-                //    forzamos la re-evaluación del estado.
                 await handleUserChange(firebaseUser: firebaseUser)
                 
             } catch {
@@ -177,10 +186,45 @@ class SessionManager: ObservableObject {
                 print(errorMessageText)
                 self.errorMessage = errorMessageText
             }
-            
-            // 3. Ocultamos el indicador de carga. Si todo fue bien, handleUserChange
-            //    ya habrá provocado la navegación a la pantalla principal.
             self.isLoading = false
         }
+    }
+    
+    // ✅ --- HELPERS CRIPTOGRÁFICOS PARA APPLE SIGN IN ---
+
+    private func randomNonceString(length: Int = 32) -> String {
+        precondition(length > 0)
+        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        var result = ""
+        var remainingLength = length
+        while remainingLength > 0 {
+            let randoms: [UInt8] = (0 ..< 16).map { _ in
+                var random: UInt8 = 0
+                let errorCode = SecRandomCopyBytes(kSecRandomDefault, 1, &random)
+                if errorCode != errSecSuccess {
+                    fatalError("No se pudo generar un byte aleatorio seguro. \(errorCode)")
+                }
+                return random
+            }
+            for random in randoms {
+                if remainingLength == 0 {
+                    break
+                }
+                if random < charset.count {
+                    result.append(charset[Int(random)])
+                    remainingLength -= 1
+                }
+            }
+        }
+        return result
+    }
+
+    private func sha256(_ input: String) -> String {
+        let inputData = Data(input.utf8)
+        let hashedData = SHA256.hash(data: inputData)
+        let hashString = hashedData.compactMap {
+            String(format: "%02x", $0)
+        }.joined()
+        return hashString
     }
 }

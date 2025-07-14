@@ -1,11 +1,11 @@
-//  RondaApp/Core/Services/AuthService.swift
+// Fichero: RondaApp/Core/Services/AuthService.swift
 
 import Foundation
 import FirebaseAuth
 import GoogleSignIn
 import GoogleSignInSwift
-import AuthenticationServices // Necesario para la futura implementación de Apple Sign In
-import CryptoKit             // Necesario para la futura implementación de Apple Sign In
+import AuthenticationServices
+import CryptoKit
 
 class AuthService {
     
@@ -28,17 +28,48 @@ class AuthService {
         }
         
         let credential = GoogleAuthProvider.credential(withIDToken: idToken,
-                                                         accessToken: gidSignInResult.user.accessToken.tokenString)
+                                                     accessToken: gidSignInResult.user.accessToken.tokenString)
         
         return try await auth.signIn(with: credential)
     }
     
-    // MARK: - Sign In with Apple (Pospuesto)
-    
-    func signInWithApple() {
-        // Esta función está vacía intencionadamente para evitar errores de compilación.
-        // El botón en la LoginView debe estar deshabilitado para que no se pueda llamar.
-        print("Intento de usar Sign in with Apple (actualmente deshabilitado).")
+    // MARK: - Sign In with Apple (Implementación Completa)
+    @MainActor
+    func signInWithApple(result: Result<ASAuthorization, Error>, nonce: String) async throws -> AuthDataResult {
+        switch result {
+        case .success(let authorization):
+            guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
+                throw NSError(domain: "AppleAuthError", code: 1, userInfo: [NSLocalizedDescriptionKey: "No se pudo obtener la credencial de Apple."])
+            }
+            
+            guard let appleIDToken = appleIDCredential.identityToken else {
+                throw NSError(domain: "AppleAuthError", code: 2, userInfo: [NSLocalizedDescriptionKey: "No se pudo obtener el ID Token de Apple."])
+            }
+            
+            guard let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
+                throw NSError(domain: "AppleAuthError", code: 3, userInfo: [NSLocalizedDescriptionKey: "No se pudo convertir el token a String."])
+            }
+
+            // Crear la credencial de Firebase para Apple
+            let firebaseCredential = OAuthProvider.appleCredential(
+                withIDToken: idTokenString,
+                rawNonce: nonce,
+                fullName: appleIDCredential.fullName
+            )
+            
+            // Iniciar sesión en Firebase
+            return try await auth.signIn(with: firebaseCredential)
+            
+        case .failure(let error):
+            // Si el usuario cancela, no es un error fatal.
+            if (error as? ASAuthorizationError)?.code == .canceled {
+                // Lanzamos un error especial para que el SessionManager lo identifique
+                // y no muestre una alerta de error innecesaria.
+                throw CancellationError()
+            }
+            // Si es otro tipo de error, sí lo lanzamos.
+            throw error
+        }
     }
     
     // MARK: - Sign Out
@@ -67,5 +98,3 @@ class AuthService {
         return topController
     }
 }
-
-

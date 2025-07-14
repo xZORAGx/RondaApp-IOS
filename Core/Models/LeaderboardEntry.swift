@@ -2,18 +2,15 @@
 //  LeaderboardEntry.swift
 //  RondaApp
 //
-//  Created by David Roger Alvarez on 13/7/25.
+//  Created by David Roger Alvarez on 14/7/25.
 //
-
-// Fichero: RondaApp/Core/Models/LeaderboardEntry.swift
 
 import Foundation
 
-// Este modelo nos ayudará a combinar los datos para la vista.
-// Es Identifiable para poder usarlo en un ForEach.
 struct LeaderboardEntry: Identifiable {
-    var id: String { user.uid } // Usamos el uid del usuario como identificador
+    var id: String { user.uid }
     
     let user: User
-    let score: Int
+    let score: Int // Mantenemos la puntuación total
+    let userScores: [String: Int] // ✅ NUEVO: Llevamos el desglose de bebidas [DrinkID: Count]
 }

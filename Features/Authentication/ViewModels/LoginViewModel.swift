@@ -1,4 +1,5 @@
-//  RondaApp/Features/Authentication/ViewModels/LoginViewModel.swift
+// Fichero: RondaApp/Features/Authentication/ViewModels/LoginViewModel.swift
+// ✅ VERSIÓN CORREGIDA Y FINAL
 
 import Foundation
 
@@ -8,11 +9,8 @@ class LoginViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     
-    func signInWithApple() {
-        // ✅ SOLUCIÓN: Eliminamos el Task, do-catch y try-await innecesarios
-        // Simplemente llamamos a la función (que actualmente no hace nada)
-        AuthService.shared.signInWithApple()
-    }
+    // La función signInWithApple() ha sido eliminada.
+    // La LoginView ahora usa directamente el SessionManager para Apple Sign In.
     
     func signInWithGoogle() {
         isLoading = true

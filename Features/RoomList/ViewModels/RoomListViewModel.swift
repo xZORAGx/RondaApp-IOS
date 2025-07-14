@@ -72,6 +72,29 @@ class RoomListViewModel: ObservableObject {
         isLoading = false
         return success
     }
+    
+    func joinRoom(withCode code: String) {
+           // Ignoramos si el código está vacío.
+           guard !code.trimmingCharacters(in: .whitespaces).isEmpty else {
+               self.errorMessage = "El código no puede estar vacío."
+               return
+           }
+           
+           self.isLoading = true
+           self.errorMessage = nil
+           
+           Task {
+               do {
+                   try await RoomService.shared.joinRoom(withCode: code.uppercased(), userId: user.uid)
+                   // Si tiene éxito, recargamos las salas para que aparezca la nueva.
+                   self.loadRooms()
+               } catch {
+                   self.errorMessage = error.localizedDescription
+               }
+               self.isLoading = false
+           }
+       }
+    
     func leaveRoom(_ room: Room) {
             isLoading = true
             errorMessage = nil

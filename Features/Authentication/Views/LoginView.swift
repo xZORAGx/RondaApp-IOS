@@ -1,6 +1,7 @@
 // Fichero: RondaApp/Features/Authentication/Views/LoginView.swift
 
 import SwiftUI
+import AuthenticationServices // Importante: Añadir esta línea
 
 struct LoginView: View {
     @ObservedObject var sessionManager: SessionManager
@@ -19,15 +20,21 @@ struct LoginView: View {
                     .frame(width: 220)
                     .padding(.bottom, 60)
 
-                Button(action: { /* No hace nada */ }) {
-                    HStack {
-                        Image(systemName: "apple.logo").font(.title2)
-                        Text("Iniciar sesión con Apple").fontWeight(.semibold)
+                // ✅ CÓDIGO CORREGIDO: Botón nativo de Apple
+                SignInWithAppleButton(
+                    .signIn,
+                    onRequest: { request in
+                        sessionManager.handleAppleSignInRequest(request)
+                    },
+                    onCompletion: { result in
+                        sessionManager.handleAppleSignInCompletion(result)
                     }
-                }
-                .buttonStyle(SocialButtonStyle(backgroundColor: .black, foregroundColor: .white))
-                .disabled(true)
-                .opacity(0.6)
+                )
+                .signInWithAppleButtonStyle(.black)
+                .frame(height: 55)
+                .cornerRadius(12)
+                .shadow(color: .black.opacity(0.1), radius: 3, y: 2)
+                .padding(.horizontal) // Usamos padding horizontal completo como en el de Google
 
                 Button(action: {
                     sessionManager.signInWithGoogle()
@@ -71,7 +78,7 @@ struct LoginView: View {
 }
 
 // --- VISTAS Y ESTILOS REUTILIZABLES ---
-// Para una mejor organización, esto debería ir en sus propios archivos.
+// (Tu código existente se mantiene igual)
 
 struct SocialButtonStyle: ButtonStyle {
     var backgroundColor: Color

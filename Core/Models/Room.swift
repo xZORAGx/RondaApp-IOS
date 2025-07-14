@@ -3,19 +3,22 @@
 import Foundation
 import FirebaseFirestore // ¡Asegúrate de que este import esté presente!
 
-struct Room: Identifiable, Codable {
+struct Room: Identifiable, Codable, Equatable {
     
-    // ✅ ¡ESTA LÍNEA ES LA SOLUCIÓN MÁGICA!
-    // Le dice a Firebase que ponga aquí el ID del documento automáticamente.
     @DocumentID var id: String?
     
-    // El resto de tus propiedades
     let title: String
     var description: String?
     var photoURL: String?
     let ownerId: String
+    var invitationCode: String?
     var memberIds: [String]
-    var scores: [String: Int]? // Es opcional porque al inicio puede no existir
     
-    // Puedes añadir más propiedades aquí si las necesitas
+    // ✅ ESTRUCTURA CORREGIDA
+    var drinks: [Drink]
+    var scores: [String: [String: Int]] // Esta es la única línea de 'scores' que debe existir
+    
+    static func == (lhs: Room, rhs: Room) -> Bool {
+        lhs.id == rhs.id
+    }
 }

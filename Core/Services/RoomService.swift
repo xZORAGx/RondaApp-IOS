@@ -24,16 +24,23 @@ class RoomService {
         return snapshot.documents.compactMap { try? $0.data(as: Room.self) }
     }
     
-    // ✅ FUNCIÓN CORREGIDA: Ahora inicializa la puntuación del propietario.
     func createRoom(title: String, description: String?, owner: User) async throws -> String {
+        // Creamos las dos bebidas por defecto
+        let defaultDrinks = [
+            Drink(name: "Cerveza", points: 1, emoji: "🍺"),
+            Drink(name: "Calimocho", points: 1, emoji: "🍷")
+        ]
+        
+        // ✅ ORDEN CORREGIDO
         let newRoom = Room(
             title: title,
             description: description,
             photoURL: nil,
-            ownerId: owner.uid,
+            ownerId: owner.uid, // <-- Esta línea va primero
+            invitationCode: generateInvitationCode(), // <-- Y esta después
             memberIds: [owner.uid],
-            // ¡Clave! Inicializamos el mapa de puntuaciones con el propietario.
-            scores: [owner.uid: 0]
+            drinks: defaultDrinks,
+            scores: [owner.uid: [:]]
         )
         
         let documentRef = try roomsCollection.addDocument(from: newRoom)
@@ -47,10 +54,8 @@ class RoomService {
     func leaveRoom(_ room: Room, userId: String) async throws {
         guard let roomId = room.id else { throw URLError(.badURL) }
         
-        // Eliminamos al usuario de la lista de miembros y de sus puntuaciones.
         try await roomsCollection.document(roomId).updateData([
             "memberIds": FieldValue.arrayRemove([userId]),
-            // Usamos FieldValue.delete() para eliminar la clave del mapa.
             "scores.\(userId)": FieldValue.delete()
         ])
     }
@@ -78,16 +83,58 @@ class RoomService {
         }).eraseToAnyPublisher()
     }
     
-    // ✅ FUNCIÓN MEJORADA: Ahora es más segura.
-    func addDrinkForUser(userId: String, in room: Room) async throws {
+    func addDrinkForUser(userId: String, drinkId: String, in room: Room) async throws {
         guard let roomId = room.id else { throw URLError(.badURL) }
         
         let roomRef = roomsCollection.document(roomId)
         
-        // Se asegura de que el usuario esté en la sala antes de incrementar.
-        // Si no está, lo añade con 1 punto. Si ya está, le suma 1.
+        // La clave para actualizar un campo anidado es usar "notación de punto"
+        let scoreFieldPath = "scores.\(userId).\(drinkId)"
+        
+        // Usamos setData con merge:true para asegurarnos de que el sub-mapa del usuario existe
         try await roomRef.setData([
-            "scores": [userId: FieldValue.increment(Int64(1))]
+            "scores": [userId: [drinkId: FieldValue.increment(Int64(1))]]
         ], merge: true)
     }
+    
+    func addCustomDrink(_ drink: Drink, toRoomId roomId: String) async throws {
+        guard let drinkData = try? Firestore.Encoder().encode(drink) else {
+            throw NSError(domain: "AppError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Error al codificar la bebida"])
+        }
+        
+        try await roomsCollection.document(roomId).updateData([
+            "drinks": FieldValue.arrayUnion([drinkData])
+        ])
+    }
+    
+    func joinRoom(withCode code: String, userId: String) async throws {
+        let query = roomsCollection.whereField("invitationCode", isEqualTo: code).limit(to: 1)
+        let snapshot = try await query.getDocuments()
+        
+        guard let document = snapshot.documents.first else {
+            throw NSError(domain: "RoomService", code: 404, userInfo: [NSLocalizedDescriptionKey: "No se ha encontrado ninguna sala con ese código."])
+        }
+        
+        let roomId = document.documentID
+        
+        try await roomsCollection.document(roomId).updateData([
+            "memberIds": FieldValue.arrayUnion([userId]),
+            "scores.\(userId)": [:] // Inicializa el mapa de bebidas del nuevo usuario como vacío
+        ])
+    }
+    
+    private func generateInvitationCode(length: Int = 6) -> String {
+        let letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        return String((0..<length).map{ _ in letters.randomElement()! })
+    }
+    
+    func updateDrinks(forRoomId roomId: String, with newDrinks: [Drink]) async throws {
+        // Convertimos el array de structs a un array de diccionarios que Firebase entiende
+        let drinksData = try newDrinks.map { try Firestore.Encoder().encode($0) }
+        
+        try await roomsCollection.document(roomId).updateData([
+            "drinks": drinksData
+        ])
+    }
+    
 }
