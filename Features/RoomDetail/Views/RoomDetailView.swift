@@ -1,25 +1,31 @@
-// Fichero: RoomDetailView.swift
+// Fichero: RondaApp/Features/RoomDetail/Views/RoomDetailView.swift
 
 import SwiftUI
 
 struct RoomDetailView: View {
     
-    // MARK: - Properties
+    // MARK: - ViewModels
     @StateObject private var viewModel: RoomDetailViewModel
-    private let user: User
+    // ✅ Declara el StateObject para el ViewModel del chat.
+    @StateObject private var chatViewModel: ChatViewModel
     
+    // MARK: - Properties
+    private let user: User
+    @State private var activeSheet: ActiveSheet?
+
     enum ActiveSheet: Identifiable {
         case invite, drinks, adminPanel
         var id: Self { self }
     }
     
-    @State private var activeSheet: ActiveSheet?
-    
+    // MARK: - Initializer
     init(room: Room, user: User) {
         self.user = user
+        // ✅ Modificamos el 'init' para crear AMBOS ViewModels.
         _viewModel = StateObject(wrappedValue: RoomDetailViewModel(room: room, user: user))
+        _chatViewModel = StateObject(wrappedValue: ChatViewModel(room: room, user: user))
         
-        // Personalización de la apariencia de la TabBar para que encaje con el estilo
+        // Personalización de la TabBar
         UITabBar.appearance().backgroundColor = UIColor.black.withAlphaComponent(0.9)
         UITabBar.appearance().barTintColor = .black
         UITabBar.appearance().unselectedItemTintColor = .gray
@@ -27,39 +33,29 @@ struct RoomDetailView: View {
     
     // MARK: - Body
     var body: some View {
-        // El TabView es ahora el contenedor principal
         TabView {
-            // Pestaña 1: La clasificación que ya teníamos
-            leaderboardTab
-                .tabItem {
-                    Label("Clasificación", systemImage: "trophy.fill")
-                }
+            // Pestaña de Clasificación
+            ZStack(alignment: .bottomTrailing) {
+                leaderboardTab
+                actionButtons
+            }
+            .tabItem {
+                Label("Clasificación", systemImage: "trophy.fill")
+            }
 
-            // Pestaña 2: Logros
-            AchievementsView()
-                .tabItem {
-                    Label("Logros", systemImage: "star.fill")
-                }
+            // Pestaña de Logros
+            AchievementsView().tabItem { Label("Logros", systemImage: "star.fill") }
 
-            // Pestaña 3: Chat
-            ChatView()
+            // ✅ Inyectamos el chatViewModel en la ChatView.
+            ChatView(viewModel: chatViewModel)
                 .tabItem {
                     Label("Chat", systemImage: "message.fill")
                 }
             
-            // Pestaña 4: Mapa
-            MapView()
-                .tabItem {
-                    Label("Mapa", systemImage: "map.fill")
-                }
-
-            // Pestaña 5: Eventos
-            EventsView()
-                .tabItem {
-                    Label("Eventos", systemImage: "calendar")
-                }
+            // Otras pestañas
+            MapView().tabItem { Label("Mapa", systemImage: "map.fill") }
+            EventsView().tabItem { Label("Eventos", systemImage: "calendar") }
         }
-        // Los modificadores de navegación y la hoja modal se aplican al TabView
         .navigationTitle(viewModel.room.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -70,47 +66,35 @@ struct RoomDetailView: View {
             }
         }
         .sheet(item: $activeSheet) { sheet in
-            // El contenido de la hoja modal no cambia
             switch sheet {
             case .invite:
                 if let code = viewModel.room.invitationCode {
                     InvitationCodeView(roomTitle: viewModel.room.title, invitationCode: code)
                 }
             case .drinks:
-                DrinkSelectionView(
-                    drinks: viewModel.room.drinks,
-                    onSelectDrink: { selectedDrink in
-                        viewModel.add(drink: selectedDrink)
-                        activeSheet = nil
-                    }
-                )
+                DrinkSelectionView(drinks: viewModel.room.drinks) { selectedDrink in
+                    viewModel.add(drink: selectedDrink)
+                    activeSheet = nil
+                }
                 .presentationDetents([.medium, .large])
             case .adminPanel:
                 AdminPanelView(viewModel: viewModel)
             }
         }
-        .accentColor(.purple) // El color para el icono de la pestaña seleccionada
+        .accentColor(.purple)
     }
     
     // MARK: - Subviews
     
-    /// La vista de la primera pestaña, que contiene la clasificación y los botones de acción.
     private var leaderboardTab: some View {
-        ZStack(alignment: .bottomTrailing) {
-            RadialGradient(
-                gradient: Gradient(colors: [Color(red: 0.1, green: 0, blue: 0.2), .black]),
-                center: .bottom,
-                startRadius: 200,
-                endRadius: 800
-            )
-            .ignoresSafeArea()
-            
-            leaderboardList
-            
-            actionButtons
-                .padding()
-                .padding(.bottom, 40) // Espacio extra para que no se solape con la TabBar
-        }
+        RadialGradient(
+            gradient: Gradient(colors: [Color(red: 0.1, green: 0, blue: 0.2), .black]),
+            center: .bottom,
+            startRadius: 200,
+            endRadius: 800
+        )
+        .ignoresSafeArea()
+        .overlay(leaderboardList)
     }
     
     private var leaderboardList: some View {
@@ -122,45 +106,48 @@ struct RoomDetailView: View {
                         entry: entry,
                         allDrinksInRoom: viewModel.room.drinks
                     )
+                    .transition(.move(edge: .leading).combined(with: .opacity))
                 }
             }
             .padding()
-            .padding(.bottom, 120) // Aumentamos el padding inferior para dejar espacio a los botones y la TabBar
+            .padding(.bottom, 120)
         }
+        .animation(.default, value: viewModel.leaderboardEntries)
     }
     
     private var actionButtons: some View {
         HStack {
             if viewModel.isUserAdmin {
-                adminPanelButton
+                Button(action: { activeSheet = .adminPanel }) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 22, weight: .bold))
+                }
+                .buttonStyle(FloatingActionButtonStyle(backgroundColor: .gray))
             }
-            addDrinkButton
+            
+            Button(action: { activeSheet = .drinks }) {
+                Image(systemName: "plus")
+                    .font(.system(size: 28, weight: .bold))
+            }
+            .buttonStyle(FloatingActionButtonStyle(backgroundColor: .blue))
         }
+        .padding()
+        .padding(.bottom, 50)
     }
+}
+
+// Estilo reutilizable para los botones flotantes
+struct FloatingActionButtonStyle: ButtonStyle {
+    let backgroundColor: Color
     
-    private var adminPanelButton: some View {
-        Button(action: { activeSheet = .adminPanel }) {
-            Image(systemName: "gearshape.fill")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundColor(.white)
-                .frame(width: 60, height: 60)
-                .background(
-                    Circle().fill(Color.yellow)
-                        .shadow(color: .yellow.opacity(0.7), radius: 10, y: 5)
-                )
-        }
-    }
-    
-    private var addDrinkButton: some View {
-        Button(action: { activeSheet = .drinks }) {
-            Image(systemName: "plus")
-                .font(.system(size: 28, weight: .bold))
-                .foregroundColor(.white)
-                .frame(width: 60, height: 60)
-                .background(
-                    Circle().fill(Color.blue)
-                        .shadow(color: .blue.opacity(0.7), radius: 10, y: 5)
-                )
-        }
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundColor(.white)
+            .frame(width: 60, height: 60)
+            .background(backgroundColor)
+            .clipShape(Circle())
+            .shadow(color: .black.opacity(0.3), radius: 10, y: 5)
+            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }

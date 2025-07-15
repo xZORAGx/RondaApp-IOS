@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct LeaderboardEntry: Identifiable {
+struct LeaderboardEntry: Identifiable, Equatable {
     var id: String { user.uid }
     
     let user: User

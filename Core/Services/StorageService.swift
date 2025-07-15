@@ -46,4 +46,25 @@ class StorageService {
             let downloadURL = try await profileImagesRef.downloadURL()
             return downloadURL
         }
-}
+    
+    func uploadChatMedia(data: Data, roomId: String, messageId: String, mediaType: MediaType) async throws -> URL {
+           // Nos aseguramos de que solo se intente subir un audio.
+           guard mediaType == .audio else {
+               throw URLError(.badURL, userInfo: [NSLocalizedDescriptionKey: "Intento de subir un tipo de media no permitido."])
+           }
+           
+           // La extensión siempre será "m4a" para nuestros audios.
+           let fileExtension = "m4a"
+           
+           let mediaRef = storage.child("chat_media").child(roomId).child("\(messageId).\(fileExtension)")
+           
+           let metadata = StorageMetadata()
+           metadata.contentType = "audio/m4a" // Es buena práctica especificar el tipo de contenido
+           
+           let _ = try await mediaRef.putDataAsync(data, metadata: metadata)
+           let downloadURL = try await mediaRef.downloadURL()
+           return downloadURL
+       }
+   }
+    
+
