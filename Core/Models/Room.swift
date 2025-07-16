@@ -18,7 +18,16 @@ struct Room: Identifiable, Codable, Equatable {
     var drinks: [Drink]
     var scores: [String: [String: Int]] // Esta es la única línea de 'scores' que debe existir
     
-    static func == (lhs: Room, rhs: Room) -> Bool {
-        lhs.id == rhs.id
+    // --- ✅ NUEVAS PROPIEDADES PARA EL CENTRO DE COMPETICIÓN ---
+        
+        // Almacena los créditos de cada usuario en esta sala [UserID: Creditos]
+        var userCredits: [String: Int] = [:]
+        
+        // Listas de competiciones activas
+        var bets: [Bet] = []
+        var duels: [Duel] = []
+        
+        static func == (lhs: Room, rhs: Room) -> Bool {
+            lhs.id == rhs.id
+        }
     }
-}

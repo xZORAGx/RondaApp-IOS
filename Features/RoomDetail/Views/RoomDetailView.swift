@@ -1,4 +1,5 @@
 // Fichero: RondaApp/Features/RoomDetail/Views/RoomDetailView.swift
+// ✅ VERSIÓN ACTUALIZADA CON LA PESTAÑA DE MAPA
 
 import SwiftUI
 
@@ -6,13 +7,13 @@ struct RoomDetailView: View {
     
     // MARK: - ViewModels
     @StateObject private var viewModel: RoomDetailViewModel
-    // ✅ Declara el StateObject para el ViewModel del chat.
     @StateObject private var chatViewModel: ChatViewModel
     
     // MARK: - Properties
     private let user: User
     @State private var activeSheet: ActiveSheet?
-
+    @State private var hasNewNotifications = false
+    
     enum ActiveSheet: Identifiable {
         case invite, drinks, adminPanel
         var id: Self { self }
@@ -21,7 +22,6 @@ struct RoomDetailView: View {
     // MARK: - Initializer
     init(room: Room, user: User) {
         self.user = user
-        // ✅ Modificamos el 'init' para crear AMBOS ViewModels.
         _viewModel = StateObject(wrappedValue: RoomDetailViewModel(room: room, user: user))
         _chatViewModel = StateObject(wrappedValue: ChatViewModel(room: room, user: user))
         
@@ -34,27 +34,36 @@ struct RoomDetailView: View {
     // MARK: - Body
     var body: some View {
         TabView {
-            // Pestaña de Clasificación
-            ZStack(alignment: .bottomTrailing) {
-                leaderboardTab
-                actionButtons
-            }
-            .tabItem {
-                Label("Clasificación", systemImage: "trophy.fill")
-            }
+            // Pestaña 1: Clasificación
+            leaderboardTab
+                .tabItem {
+                    Label("Clasificación", systemImage: "trophy.fill")
+                }
 
-            // Pestaña de Logros
-            AchievementsView().tabItem { Label("Logros", systemImage: "star.fill") }
+            // Pestaña 2: Centro de Competición
+            CompetitionCenterView(viewModel: viewModel)
+                .tabItem {
+                    Label("Competición", systemImage: "gamecontroller.fill")
+                }
+                .badge(hasNewNotifications ? "!" : nil)
 
-            // ✅ Inyectamos el chatViewModel en la ChatView.
+            // Pestaña 3: Chat
             ChatView(viewModel: chatViewModel)
                 .tabItem {
                     Label("Chat", systemImage: "message.fill")
                 }
             
-            // Otras pestañas
-            MapView().tabItem { Label("Mapa", systemImage: "map.fill") }
-            EventsView().tabItem { Label("Eventos", systemImage: "calendar") }
+            // ✅ PESTAÑA DE MAPA AÑADIDA DE VUELTA
+            MapView()
+                .tabItem {
+                    Label("Mapa", systemImage: "map.fill")
+                }
+            
+            // Pestaña 5: Eventos
+            EventsView()
+                .tabItem {
+                    Label("Eventos", systemImage: "calendar")
+                }
         }
         .navigationTitle(viewModel.room.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -82,19 +91,32 @@ struct RoomDetailView: View {
             }
         }
         .accentColor(.purple)
+        .onReceive(viewModel.$room) { updatedRoom in
+            let oldBetCount = viewModel.room.bets.count
+            let newBetCount = updatedRoom.bets.count
+            self.hasNewNotifications = newBetCount > oldBetCount
+        }
     }
     
+    // El resto del código de la vista (subviews) permanece igual...
     // MARK: - Subviews
     
     private var leaderboardTab: some View {
-        RadialGradient(
-            gradient: Gradient(colors: [Color(red: 0.1, green: 0, blue: 0.2), .black]),
-            center: .bottom,
-            startRadius: 200,
-            endRadius: 800
-        )
-        .ignoresSafeArea()
-        .overlay(leaderboardList)
+        ZStack(alignment: .bottomTrailing) {
+            RadialGradient(
+                gradient: Gradient(colors: [Color(red: 0.1, green: 0, blue: 0.2), .black]),
+                center: .bottom,
+                startRadius: 200,
+                endRadius: 800
+            )
+            .ignoresSafeArea()
+            
+            leaderboardList
+            
+            actionButtons
+                .padding()
+                .padding(.bottom, 40)
+        }
     }
     
     private var leaderboardList: some View {
@@ -106,48 +128,45 @@ struct RoomDetailView: View {
                         entry: entry,
                         allDrinksInRoom: viewModel.room.drinks
                     )
-                    .transition(.move(edge: .leading).combined(with: .opacity))
                 }
             }
             .padding()
             .padding(.bottom, 120)
         }
-        .animation(.default, value: viewModel.leaderboardEntries)
     }
     
     private var actionButtons: some View {
         HStack {
             if viewModel.isUserAdmin {
-                Button(action: { activeSheet = .adminPanel }) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 22, weight: .bold))
-                }
-                .buttonStyle(FloatingActionButtonStyle(backgroundColor: .gray))
+                adminPanelButton
             }
-            
-            Button(action: { activeSheet = .drinks }) {
-                Image(systemName: "plus")
-                    .font(.system(size: 28, weight: .bold))
-            }
-            .buttonStyle(FloatingActionButtonStyle(backgroundColor: .blue))
+            addDrinkButton
         }
-        .padding()
-        .padding(.bottom, 50)
     }
-}
-
-// Estilo reutilizable para los botones flotantes
-struct FloatingActionButtonStyle: ButtonStyle {
-    let backgroundColor: Color
     
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundColor(.white)
-            .frame(width: 60, height: 60)
-            .background(backgroundColor)
-            .clipShape(Circle())
-            .shadow(color: .black.opacity(0.3), radius: 10, y: 5)
-            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+    private var adminPanelButton: some View {
+        Button(action: { activeSheet = .adminPanel }) {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 24, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: 60, height: 60)
+                .background(
+                    Circle().fill(Color.yellow)
+                        .shadow(color: .yellow.opacity(0.7), radius: 10, y: 5)
+                )
+        }
+    }
+    
+    private var addDrinkButton: some View {
+        Button(action: { activeSheet = .drinks }) {
+            Image(systemName: "plus")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: 60, height: 60)
+                .background(
+                    Circle().fill(Color.blue)
+                        .shadow(color: .blue.opacity(0.7), radius: 10, y: 5)
+                )
+        }
     }
 }

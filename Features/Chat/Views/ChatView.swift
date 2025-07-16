@@ -1,39 +1,30 @@
 // Fichero: RondaApp/Features/Chat/Views/ChatView.swift
 
 import SwiftUI
-import Combine
 
 struct ChatView: View {
     
     @StateObject var viewModel: ChatViewModel
-    @State private var keyboardHeight: CGFloat = 0
     @Namespace var bottomId
+    @FocusState private var isTextFieldFocused: Bool
 
     var body: some View {
-        ZStack {
-            ChatBackgroundView()
-                .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                messageListView
+        // La vista principal ahora es la lista de mensajes.
+        // El fondo se aplica directamente a la lista.
+        messageListView
+            .background(ChatBackgroundView())
+        
+            // ✅ LA SOLUCIÓN DEFINITIVA:
+            // Incrustamos la barra de texto en el borde inferior del área segura.
+            // SwiftUI se encarga de moverla automáticamente con el teclado.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 chatInputBar
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
-            guard let userInfo = notification.userInfo,
-                  let keyboardFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
-            withAnimation(.easeOut(duration: 0.25)) {
-                keyboardHeight = keyboardFrame.height - 34
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            withAnimation(.easeOut(duration: 0.25)) {
-                keyboardHeight = 0
-            }
-        }
-        .navigationTitle("Chat de la Sala")
-        .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Chat de la Sala")
+            .navigationBarTitleDisplayMode(.inline)
     }
+    
+    // MARK: - Sub-vistas
     
     private var messageListView: some View {
         ScrollViewReader { proxy in
@@ -51,11 +42,14 @@ struct ChatView: View {
                             }
                         )
                     }
+                    // Ancla invisible para el auto-scroll
                     Color.clear.frame(height: 1).id(bottomId)
                 }
-                .padding(.vertical)
+                .padding(.top, 10)
             }
-            .padding(.bottom, keyboardHeight)
+            .onTapGesture {
+                isTextFieldFocused = false // Oculta el teclado al tocar la lista
+            }
             .onAppear { proxy.scrollTo(bottomId, anchor: .bottom) }
             .onChange(of: viewModel.messages.count) { _, _ in
                 withAnimation { proxy.scrollTo(bottomId, anchor: .bottom) }
@@ -75,6 +69,8 @@ struct ChatView: View {
                 .foregroundColor(.blue)
             } else {
                 TextField("Escribe algo...", text: $viewModel.messageText)
+                    .focused($isTextFieldFocused)
+                
                 if viewModel.messageText.isEmpty {
                     Button(action: viewModel.startAudioRecording) {
                         Image(systemName: "mic.fill").font(.system(size: 20))
@@ -97,7 +93,16 @@ struct ChatView: View {
         .background(.ultraThinMaterial)
         .clipShape(Capsule())
         .padding(.horizontal)
-        .padding(.bottom, 5)
+        .padding(.top, 5) // Usamos padding superior para separarlo un poco
+        .background(
+            // Añadimos un pequeño fondo de material que se extiende hacia abajo
+            // para cubrir el área del "home indicator" y que no se vea el chat por debajo.
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea()
+                .frame(height: 50)
+            , alignment: .bottom
+        )
     }
     
     private func formatTime(_ time: TimeInterval) -> String {
@@ -108,7 +113,7 @@ struct ChatView: View {
 }
 
 
-// --- VISTAS COMPLEMENTARIAS ---
+// --- VISTAS COMPLEMENTARIAS (NO NECESITAN CAMBIOS) ---
 
 struct ChatBackgroundView: View {
     @State private var animate = false

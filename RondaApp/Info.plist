@@ -17,5 +17,7 @@
 	<string>Para poder grabar y enviar mensajes de voz en el chat.</string>
 	<key>GIDClientID</key>
 	<string>54148031594-c65kdkqb6omfd3sepl6t2d6etk85a3dq.apps.googleusercontent.com</string>
+    <key>GADApplicationIdentifier</key>
+    <string>ca-app-pub-3940256099942544~1458002511</string>
 </dict>
 </plist>
