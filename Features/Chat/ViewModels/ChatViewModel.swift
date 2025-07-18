@@ -21,9 +21,10 @@ class ChatViewModel: ObservableObject {
     // --- ✅ NUEVAS PROPIEDADES PARA DUELOS Y ENCUESTAS ---
     @Published var duels: [Duel] = []
     @Published var polls: [String: Poll] = [:] // [PollID: Poll]
-    
+    @Published var checkIns: [String: CheckIn] = [:] // [CheckInID: CheckIn]
+
     private var recordingTimer: Timer?
-    private let room: Room
+     let room: Room
     let user: User
     private var cancellables = Set<AnyCancellable>()
     
@@ -65,7 +66,20 @@ class ChatViewModel: ObservableObject {
                 self?.polls = pollsDict
             }
             .store(in: &cancellables)
-    }
+        
+        RoomService.shared.listenToCheckIns(inRoomId: roomId)
+                    .sink { _ in } receiveValue: { [weak self] checkIns in
+                        var checkInsDict: [String: CheckIn] = [:]
+                        checkIns.forEach { checkIn in
+                            if let id = checkIn.id {
+                                checkInsDict[id] = checkIn
+                            }
+                        }
+                        self?.checkIns = checkInsDict
+                    }
+                    .store(in: &cancellables)
+            }
+    
     
     private func fetchMemberProfiles() {
         guard !room.memberIds.isEmpty else { return }

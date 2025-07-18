@@ -147,38 +147,29 @@ struct AddCheckInView: View {
     // MARK: - Lógica de Creación
     
     private func processAndCreateCheckIn() {
-        guard let userId = viewModel.currentUser?.uid,
-              let roomId = viewModel.room.id else {
-            viewModel.errorMessage = "Error de usuario o de sala."
-            dismiss()
-            return
-        }
-        
         isSaving = true
-        
         Task {
-            var location: GeoPoint? = nil
-            if shareLocation, let clLocation = await getLocation() {
-                location = GeoPoint(latitude: clLocation.coordinate.latitude, longitude: clLocation.coordinate.longitude)
+            // 1. Obtenemos la ubicación (si el usuario quiere).
+            var location: CLLocation? = nil
+            if shareLocation {
+                // Comprobamos si tenemos permiso antes de intentar nada.
+                guard locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways else {
+                    viewModel.errorMessage = "No se pueden compartir ubicaciones porque los permisos fueron denegados."
+                    isSaving = false
+                    return
+                }
+                location = await getLocationSafely()
             }
             
-            var photoURL: String? = nil
-            if let imageData = selectedImageData {
-                let tempCheckInId = UUID().uuidString
-                photoURL = try? await StorageService.shared.uploadCheckInImage(
-                    data: imageData, roomId: roomId, checkInId: tempCheckInId
-                ).absoluteString
-            }
-            
-            let newCheckIn = CheckIn(
-                userId: userId, roomId: roomId, drinkId: selectedDrinkId,
-                photoURL: photoURL,
+            // 2. Llamamos al ViewModel con TODOS los datos, incluida la ubicación.
+            let success = await viewModel.createCheckIn(
+                drinkId: selectedDrinkId,
                 caption: caption.isEmpty ? nil : caption,
-                location: location
+                imageData: selectedImageData,
+                shareLocation: shareLocation
             )
             
-            let success = await viewModel.createCheckIn(newCheckIn)
-            
+            // 3. Gestionamos el resultado.
             if success {
                 dismiss()
             } else {
@@ -186,7 +177,8 @@ struct AddCheckInView: View {
             }
         }
     }
-    
+
+                
     private func getLocation() async -> CLLocation? {
         if locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways {
             locationManager.startUpdatingLocation()
@@ -198,4 +190,25 @@ struct AddCheckInView: View {
         }
         return locationManager.userLocation
     }
-}
+    
+    private func getLocationSafely() async -> CLLocation? {
+            // Si ya tenemos permiso, pedimos la ubicación y esperamos un resultado.
+            if locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways {
+                locationManager.startUpdatingLocation()
+                
+                // Esperamos un máximo de 3 segundos por si tarda en llegar
+                for _ in 0..<30 {
+                    if let location = locationManager.userLocation {
+                        return location
+                    }
+                    try? await Task.sleep(for: .milliseconds(100))
+                }
+                // Si después de 3 segundos no hay nada, devolvemos lo que tengamos (que puede ser nil).
+                return locationManager.userLocation
+            }
+            // Si no tenemos permiso, no hacemos nada y devolvemos nil.
+            return nil
+        }
+    }
+    
+

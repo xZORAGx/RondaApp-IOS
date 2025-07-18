@@ -1,4 +1,5 @@
 // Fichero: RondaApp/Features/Chat/Views/ChatView.swift
+// ✅ VERSIÓN COMPLETA Y CORREGIDA PARA COPIAR Y PEGAR
 
 import SwiftUI
 
@@ -159,16 +160,26 @@ struct MessageBubbleView: View {
     var body: some View {
         HStack {
             if isFromCurrentUser { Spacer(minLength: 50) }
+            
             VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 5) {
                 if !isFromCurrentUser && message.authorId != "system" {
                     Text(authorName ?? "Usuario").font(.caption).fontWeight(.bold).foregroundColor(.accentColor)
                 } else if message.authorId == "system" {
                     Text("RondaApp Bot").font(.caption).fontWeight(.bold).foregroundColor(.purple)
                 }
+                
                 content
-                Text(Self.timeFormatter.string(from: message.timestamp.dateValue())).font(.caption2).foregroundColor(isFromCurrentUser ? .white.opacity(0.8) : .secondary)
+                
+                Text(Self.timeFormatter.string(from: message.timestamp.dateValue()))
+                    .font(.caption2)
+                    .foregroundColor(isFromCurrentUser ? .white.opacity(0.8) : .secondary)
             }
-            .padding(.vertical, 10).padding(.horizontal, 14).background(bubbleBackground).foregroundColor(bubbleForeground).clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(message.mediaType == .checkIn ? 0 : 10)
+            .padding(.vertical, message.mediaType == .checkIn ? 10 : 0)
+            .background(bubbleBackground)
+            .foregroundColor(bubbleForeground)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            
             if !isFromCurrentUser { Spacer(minLength: 50) }
         }.padding(.horizontal)
     }
@@ -176,7 +187,10 @@ struct MessageBubbleView: View {
     @ViewBuilder
     private var content: some View {
         switch message.mediaType {
-        case .text: Text(message.textContent ?? "")
+        case .text:
+            Text(message.textContent ?? "")
+                .padding(.horizontal, 4)
+                
         case .audio:
             HStack(spacing: 10) {
                 Button(action: onPlayButtonTapped) {
@@ -187,44 +201,66 @@ struct MessageBubbleView: View {
                 } else { Rectangle().frame(height: 2) }
                 Text(formatTime(message.duration ?? 0)).font(.caption.monospacedDigit())
             }.frame(minWidth: 180)
+            
         case .poll:
             if let pollId = message.pollId, let poll = viewModel.polls[pollId], let duel = viewModel.duels.first(where: { $0.id == poll.duelId }) {
                 PollMessageView(poll: poll, duel: duel, viewModel: viewModel)
             } else if let duelId = message.duelId, let duel = viewModel.duels.first(where: { $0.id == duelId }), duel.status == .resolved {
-                // ✅ Usamos la nueva función auxiliar para mantener la vista limpia
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Encuesta finalizada.").font(.subheadline).fontWeight(.bold)
-                    // Usamos try! para convertir el texto formateado en un Text.
-                    // Es seguro aquí porque sabemos que el formato es correcto.
                     Text(try! AttributedString(markdown: "Ganador: **\(getWinnerName(for: duel))**"))
                         .font(.body)
                 }
             } else {
                 Text("Encuesta finalizada.").font(.subheadline).italic()
             }
+            
+        case .checkIn:
+            if let checkInId = message.checkInId, let checkIn = viewModel.checkIns[checkInId] {
+                VStack(alignment: .leading, spacing: 0) {
+                    AsyncImage(url: URL(string: checkIn.photoURL ?? "")) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle().fill(.gray.opacity(0.3)).aspectRatio(1, contentMode: .fit)
+                    }
+                    .frame(maxWidth: .infinity)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let caption = checkIn.caption, !caption.isEmpty {
+                            Text(caption).font(.headline)
+                        }
+                        let drinkName = viewModel.room.drinks.first { $0.id == checkIn.drinkId }?.name ?? "una bebida"
+                        Text("Se tomó \(drinkName).")
+                            .font(.subheadline)
+                            .foregroundColor(bubbleForeground.opacity(0.8))
+                    }
+                    .padding(12)
+                }
+            } else {
+                Text("Cargando momento...").font(.subheadline.italic())
+            }
         }
     }
     
-    // ✅ FUNCIÓN AUXILIAR PARA OBTENER EL NOMBRE DEL GANADOR
     private func getWinnerName(for duel: Duel) -> String {
         if let winnerId = duel.winnerId {
-            if winnerId == "draw" {
-                return "Empate"
-            } else {
-                return viewModel.memberProfiles[winnerId]?.username ?? "Desconocido"
-            }
+            if winnerId == "draw" { return "Empate" }
+            return viewModel.memberProfiles[winnerId]?.username ?? "Desconocido"
         }
         return "No decidido"
     }
     
     private var bubbleBackground: Color {
+        if message.mediaType == .checkIn {
+            return isFromCurrentUser ? .blue.opacity(0.8) : Color(.systemGray4)
+        }
         if isFromCurrentUser { return .blue }
         if message.authorId == "system" { return .purple.opacity(0.8) }
         return Color(.systemGray5)
     }
     
     private var bubbleForeground: Color {
-        if isFromCurrentUser || message.authorId == "system" { return .white }
+        if isFromCurrentUser || message.authorId == "system" || message.mediaType == .checkIn { return .white }
         return .primary
     }
     

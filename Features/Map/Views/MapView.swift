@@ -1,39 +1,115 @@
-//
-//  MapView.swift
-//  RondaApp
-//
-//  Created by David Roger Alvarez on 14/7/25.
-//
-
-// Fichero: RondaApp/Features/RoomDetail/Views/Tabs/MapView.swift
+// Fichero: RondaApp/Features/Map/Views/MapView.swift
+// ✅ VERSIÓN FINAL COMPLETA
 
 import SwiftUI
-import MapKit // Importamos MapKit para el mapa
+import MapKit
 
 struct MapView: View {
-    // Coordenadas de ejemplo (puedes centrarlas donde quieras)
-    @State private var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 41.6488, longitude: -0.8891), // Centro de Zaragoza
-        span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
-    )
+    
+    @StateObject private var viewModel: MapViewModel
+    let room: Room
+    let roomMembers: [User]
+    
+    // Estado para el check-in seleccionado que se muestra en la hoja de detalle
+    @State private var selectedCheckIn: CheckIn?
+    // Estado para mostrar/ocultar la lista de check-ins recientes
+    @State private var showRecentCheckIns = false
+    
+    init(room: Room, members: [User]) {
+        _viewModel = StateObject(wrappedValue: MapViewModel(room: room))
+        self.room = room
+        self.roomMembers = members
+    }
 
     var body: some View {
-        // El mapa ocupará toda la pantalla
-        Map(coordinateRegion: $region)
-            .ignoresSafeArea(edges: .top) // Hacemos que el mapa llegue hasta arriba
-            .overlay(
-                // Un texto flotante para dar contexto
-                Text("Aquí verás la ubicación de tus amigos")
-                    .padding()
-                    .background(.black.opacity(0.7))
+        ZStack(alignment: .bottomTrailing) {
+            Map(coordinateRegion: $viewModel.region,
+                interactionModes: .all,
+                showsUserLocation: true,
+                annotationItems: viewModel.checkInAnnotations) { checkIn in
+                
+                MapAnnotation(coordinate: CLLocationCoordinate2D(
+                    latitude: checkIn.location?.latitude ?? 0,
+                    longitude: checkIn.location?.longitude ?? 0
+                )) {
+                    CheckInAnnotationView(checkIn: checkIn, user: roomMembers.first { $0.uid == checkIn.userId })
+                        .onTapGesture {
+                            self.selectedCheckIn = checkIn
+                        }
+                }
+            }
+            .ignoresSafeArea(edges: .top)
+            .onAppear {
+                viewModel.activateListeners()
+            }
+            .onDisappear {
+                viewModel.deactivateListeners()
+            }
+            // Hoja para mostrar el detalle de un check-in
+            .sheet(item: $selectedCheckIn) { checkIn in
+                let user = roomMembers.first { $0.uid == checkIn.userId }
+                CheckInDetailView(checkIn: checkIn, user: user)
+            }
+            // Hoja para mostrar la lista de check-ins recientes
+            .sheet(isPresented: $showRecentCheckIns) {
+                RecentCheckInsListView(
+                    checkIns: viewModel.checkInAnnotations,
+                    roomMembers: roomMembers,
+                    drinks: room.drinks
+                ) { selected in
+                    // Esta es la acción que se ejecuta al pulsar "Localizar"
+                    viewModel.centerOn(checkIn: selected)
+                }
+            }
+
+            mapControls
+                .padding()
+        }
+    }
+    
+    private var mapControls: some View {
+        VStack(spacing: 12) {
+            // Botón para centrar en la ubicación del usuario
+            Button(action: viewModel.centerOnUserLocation) {
+                Image(systemName: "location.fill")
+                    .font(.title2)
+                    .padding(12)
+                    .background(.black.opacity(0.75))
                     .foregroundColor(.white)
-                    .cornerRadius(10)
-                    .padding(),
-                alignment: .top
-            )
+                    .clipShape(Circle())
+            }
+            
+            // Botón para mostrar la lista de actividad reciente
+            Button(action: { showRecentCheckIns = true }) {
+                Image(systemName: "list.bullet")
+                    .font(.title2)
+                    .padding(12)
+                    .background(.black.opacity(0.75))
+                    .foregroundColor(.white)
+                    .clipShape(Circle())
+            }
+        }
     }
 }
 
-#Preview {
-    MapView()
+// Vista para la chincheta personalizada en el mapa
+struct CheckInAnnotationView: View {
+    let checkIn: CheckIn
+    let user: User?
+    
+    var body: some View {
+        AsyncImage(url: URL(string: user?.photoURL ?? "")) { image in
+            image.resizable().aspectRatio(contentMode: .fill)
+        } placeholder: {
+            Image(systemName: "person.fill")
+                .padding(8)
+                .background(.black.opacity(0.5))
+        }
+        .frame(width: 44, height: 44)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(Color.white, lineWidth: 2))
+        .shadow(radius: 5)
+        .scaleEffect(1.1)
+        .transition(.scale)
+    }
 }

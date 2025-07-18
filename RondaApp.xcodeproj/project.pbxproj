@@ -558,6 +558,8 @@
 				INFOPLIST_FILE = RondaApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "";
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Para poder mostrar tu ubicación en el mapa de la sala cuando compartas un momento.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Para poder grabar y enviar mensajes de voz en el chat.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -591,6 +593,8 @@
 				INFOPLIST_FILE = RondaApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "";
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Para poder mostrar tu ubicación en el mapa de la sala cuando compartas un momento.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Para poder grabar y enviar mensajes de voz en el chat.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

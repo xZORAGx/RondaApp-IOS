@@ -2,6 +2,7 @@
 
 import Foundation
 import Combine
+import CoreLocation // ✅ ESTA ES LA LÍNEA QUE AÑADIMOS
 
 @MainActor
 class RoomDetailViewModel: ObservableObject {
@@ -23,7 +24,7 @@ class RoomDetailViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let roomService = RoomService.shared
     private let userService = UserService.shared
-    
+    private let locationManager = LocationManager()
     let currentUser: User?
     
     // --- Initializer ---
@@ -280,5 +281,51 @@ class RoomDetailViewModel: ObservableObject {
         }
         isLoading = false
     }
+    
+    func createCheckIn(drinkId: String, caption: String?, imageData: Data?, shareLocation: Bool) async -> Bool {
+        guard let currentUser = currentUser, let roomId = room.id else {
+            errorMessage = "Datos de sesión inválidos."
+            return false
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        var location: CLLocation? = nil
+        if shareLocation {
+            // Si el usuario quiere compartir ubicación, la obtenemos aquí.
+            guard locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways else {
+                errorMessage = "No se puede compartir la ubicación. Revisa los permisos en Ajustes."
+                isLoading = false
+                return false
+            }
+            location = await getLocation()
+        }
+        
+        do {
+            // Llamamos al servicio con todos los datos listos.
+            try await roomService.createCheckIn(
+                for: currentUser, inRoomId: roomId, drinkId: drinkId,
+                caption: caption, imageData: imageData, location: location
+            )
+            isLoading = false
+            return true
+        } catch {
+            errorMessage = "No se pudo registrar tu momento: \(error.localizedDescription)"
+            isLoading = false
+            return false
+        }
+    }
+    
+    /// Obtiene la ubicación de forma segura.
+    private func getLocation() async -> CLLocation? {
+        locationManager.startUpdatingLocation()
+        for _ in 0..<30 { // Esperamos un máximo de 3 segundos
+            if let loc = locationManager.userLocation { return loc }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        return locationManager.userLocation
+    }
+        
     
 }

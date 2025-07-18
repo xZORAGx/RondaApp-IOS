@@ -15,9 +15,9 @@ struct RoomDetailView: View {
     @State private var hasNewNotifications = false
     
     enum ActiveSheet: Identifiable {
-        case invite, drinks, adminPanel
-        var id: Self { self }
-    }
+            case invite, adminPanel, addCheckIn // Cambiamos 'drinks' por 'addCheckIn'
+            var id: Self { self }
+        }
     
     // MARK: - Initializer
     init(room: Room, user: User) {
@@ -54,7 +54,7 @@ struct RoomDetailView: View {
                 }
             
             // ✅ PESTAÑA DE MAPA AÑADIDA DE VUELTA
-            MapView()
+            MapView(room: viewModel.room, members: viewModel.roomMembers)
                 .tabItem {
                     Label("Mapa", systemImage: "map.fill")
                 }
@@ -75,21 +75,19 @@ struct RoomDetailView: View {
             }
         }
         .sheet(item: $activeSheet) { sheet in
-            switch sheet {
-            case .invite:
-                if let code = viewModel.room.invitationCode {
-                    InvitationCodeView(roomTitle: viewModel.room.title, invitationCode: code)
-                }
-            case .drinks:
-                DrinkSelectionView(drinks: viewModel.room.drinks) { selectedDrink in
-                    viewModel.add(drink: selectedDrink)
-                    activeSheet = nil
-                }
-                .presentationDetents([.medium, .large])
-            case .adminPanel:
-                AdminPanelView(viewModel: viewModel)
-            }
-        }
+                   switch sheet {
+                   case .invite:
+                       if let code = viewModel.room.invitationCode {
+                           InvitationCodeView(roomTitle: viewModel.room.title, invitationCode: code)
+                       }
+                   case .adminPanel:
+                       AdminPanelView(viewModel: viewModel)
+                   
+                   // Aquí está la magia: presentamos la nueva vista
+                   case .addCheckIn:
+                       AddCheckInView(viewModel: viewModel)
+                   }
+               }
         .accentColor(.purple)
         .onReceive(viewModel.$room) { updatedRoom in
             let oldBetCount = viewModel.room.bets.count
@@ -140,7 +138,8 @@ struct RoomDetailView: View {
             if viewModel.isUserAdmin {
                 adminPanelButton
             }
-            addDrinkButton
+            // ✅ 3. RENOMBRAMOS EL BOTÓN Y ACTUALIZAMOS SU ACCIÓN
+            addMomentButton // El botón ahora es para "momentos"
         }
     }
     
@@ -157,16 +156,19 @@ struct RoomDetailView: View {
         }
     }
     
-    private var addDrinkButton: some View {
-        Button(action: { activeSheet = .drinks }) {
-            Image(systemName: "plus")
-                .font(.system(size: 28, weight: .bold))
-                .foregroundColor(.white)
-                .frame(width: 60, height: 60)
-                .background(
-                    Circle().fill(Color.blue)
-                        .shadow(color: .blue.opacity(0.7), radius: 10, y: 5)
-                )
-        }
-    }
-}
+
+    
+    private var addMomentButton: some View {
+           Button(action: { activeSheet = .addCheckIn }) { // La acción ahora abre nuestra nueva vista
+               Image(systemName: "plus")
+                   .font(.system(size: 28, weight: .bold))
+                   .foregroundColor(.white)
+                   .frame(width: 60, height: 60)
+                   .background(
+                       Circle().fill(Color.blue)
+                           .shadow(color: .blue.opacity(0.7), radius: 10, y: 5)
+                   )
+           }
+       }
+   }
+
