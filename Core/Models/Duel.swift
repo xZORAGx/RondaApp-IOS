@@ -1,31 +1,34 @@
-//
-//  Duel.swift
-//  RondaApp
-//
-//  Created by David Roger Alvarez on 16/7/25.
-//
-
 // Fichero: RondaApp/Core/Models/Duel.swift
 
 import Foundation
 import FirebaseFirestore
 
+// ✅ ENUM SIMPLIFICADO: Eliminamos .pending y .finished que son redundantes.
 enum DuelStatus: String, Codable {
-    case pending = "Pendiente"
-    case challengerWon = "Ganó Retador"
-    case opponentWon = "Ganó Oponente"
-    case draw = "Empate"
-    case inPoll = "En Votación" // Nuevo estado para la encuesta
+    case awaitingAcceptance = "Esperando Respuesta"
+    case inProgress = "En Progreso"
+    case inPoll = "En Votación"
+    case resolved = "Resuelto"
 }
 
 struct Duel: Identifiable, Codable, Hashable {
     @DocumentID var id: String?
+    
     var title: String
     var description: String?
-    var wager: Int // Créditos que se apuestan (cada uno)
-    var challengerId: String // Quién reta
-    var opponentId: String // El retado
-    var judgeId: String // El juez
-    var status: DuelStatus = .pending
-    var pollId: String? // ID de la encuesta en el chat si se crea
+    
+    var challengerId: String
+    var opponentId: String
+    
+    var wager: Int
+    
+    var startTime: Timestamp
+    var endTime: Timestamp
+    
+    // El estado inicial por defecto es el correcto.
+    var status: DuelStatus = .awaitingAcceptance
+    
+    var winnerId: String?
+    var pollId: String?
+    var resolvedAt: Timestamp?
 }

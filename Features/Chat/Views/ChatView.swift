@@ -9,14 +9,8 @@ struct ChatView: View {
     @FocusState private var isTextFieldFocused: Bool
 
     var body: some View {
-        // La vista principal ahora es la lista de mensajes.
-        // El fondo se aplica directamente a la lista.
         messageListView
             .background(ChatBackgroundView())
-        
-            // ✅ LA SOLUCIÓN DEFINITIVA:
-            // Incrustamos la barra de texto en el borde inferior del área segura.
-            // SwiftUI se encarga de moverla automáticamente con el teclado.
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 chatInputBar
             }
@@ -37,18 +31,18 @@ struct ChatView: View {
                             authorName: viewModel.memberProfiles[message.authorId]?.username,
                             isPlaying: viewModel.playingMessageId == message.id,
                             playbackProgress: viewModel.playbackProgress,
+                            viewModel: viewModel,
                             onPlayButtonTapped: {
                                 viewModel.togglePlayback(for: message)
                             }
                         )
                     }
-                    // Ancla invisible para el auto-scroll
                     Color.clear.frame(height: 1).id(bottomId)
                 }
                 .padding(.top, 10)
             }
             .onTapGesture {
-                isTextFieldFocused = false // Oculta el teclado al tocar la lista
+                isTextFieldFocused = false
             }
             .onAppear { proxy.scrollTo(bottomId, anchor: .bottom) }
             .onChange(of: viewModel.messages.count) { _, _ in
@@ -93,10 +87,8 @@ struct ChatView: View {
         .background(.ultraThinMaterial)
         .clipShape(Capsule())
         .padding(.horizontal)
-        .padding(.top, 5) // Usamos padding superior para separarlo un poco
+        .padding(.top, 5)
         .background(
-            // Añadimos un pequeño fondo de material que se extiende hacia abajo
-            // para cubrir el área del "home indicator" y que no se vea el chat por debajo.
             Rectangle()
                 .fill(.ultraThinMaterial)
                 .ignoresSafeArea()
@@ -113,7 +105,7 @@ struct ChatView: View {
 }
 
 
-// --- VISTAS COMPLEMENTARIAS (NO NECESITAN CAMBIOS) ---
+// --- VISTAS COMPLEMENTARIAS ---
 
 struct ChatBackgroundView: View {
     @State private var animate = false
@@ -157,6 +149,7 @@ struct MessageBubbleView: View {
     let authorName: String?
     let isPlaying: Bool
     let playbackProgress: Double
+    @ObservedObject var viewModel: ChatViewModel
     let onPlayButtonTapped: () -> Void
     
     private static let timeFormatter: DateFormatter = {
@@ -167,13 +160,15 @@ struct MessageBubbleView: View {
         HStack {
             if isFromCurrentUser { Spacer(minLength: 50) }
             VStack(alignment: isFromCurrentUser ? .trailing : .leading, spacing: 5) {
-                if !isFromCurrentUser {
+                if !isFromCurrentUser && message.authorId != "system" {
                     Text(authorName ?? "Usuario").font(.caption).fontWeight(.bold).foregroundColor(.accentColor)
+                } else if message.authorId == "system" {
+                    Text("RondaApp Bot").font(.caption).fontWeight(.bold).foregroundColor(.purple)
                 }
                 content
                 Text(Self.timeFormatter.string(from: message.timestamp.dateValue())).font(.caption2).foregroundColor(isFromCurrentUser ? .white.opacity(0.8) : .secondary)
             }
-            .padding(.vertical, 10).padding(.horizontal, 14).background(isFromCurrentUser ? .blue : Color(.systemGray5)).foregroundColor(isFromCurrentUser ? .white : .primary).clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(.vertical, 10).padding(.horizontal, 14).background(bubbleBackground).foregroundColor(bubbleForeground).clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             if !isFromCurrentUser { Spacer(minLength: 50) }
         }.padding(.horizontal)
     }
@@ -192,7 +187,45 @@ struct MessageBubbleView: View {
                 } else { Rectangle().frame(height: 2) }
                 Text(formatTime(message.duration ?? 0)).font(.caption.monospacedDigit())
             }.frame(minWidth: 180)
+        case .poll:
+            if let pollId = message.pollId, let poll = viewModel.polls[pollId], let duel = viewModel.duels.first(where: { $0.id == poll.duelId }) {
+                PollMessageView(poll: poll, duel: duel, viewModel: viewModel)
+            } else if let duelId = message.duelId, let duel = viewModel.duels.first(where: { $0.id == duelId }), duel.status == .resolved {
+                // ✅ Usamos la nueva función auxiliar para mantener la vista limpia
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Encuesta finalizada.").font(.subheadline).fontWeight(.bold)
+                    // Usamos try! para convertir el texto formateado en un Text.
+                    // Es seguro aquí porque sabemos que el formato es correcto.
+                    Text(try! AttributedString(markdown: "Ganador: **\(getWinnerName(for: duel))**"))
+                        .font(.body)
+                }
+            } else {
+                Text("Encuesta finalizada.").font(.subheadline).italic()
+            }
         }
+    }
+    
+    // ✅ FUNCIÓN AUXILIAR PARA OBTENER EL NOMBRE DEL GANADOR
+    private func getWinnerName(for duel: Duel) -> String {
+        if let winnerId = duel.winnerId {
+            if winnerId == "draw" {
+                return "Empate"
+            } else {
+                return viewModel.memberProfiles[winnerId]?.username ?? "Desconocido"
+            }
+        }
+        return "No decidido"
+    }
+    
+    private var bubbleBackground: Color {
+        if isFromCurrentUser { return .blue }
+        if message.authorId == "system" { return .purple.opacity(0.8) }
+        return Color(.systemGray5)
+    }
+    
+    private var bubbleForeground: Color {
+        if isFromCurrentUser || message.authorId == "system" { return .white }
+        return .primary
     }
     
     private func formatTime(_ time: TimeInterval) -> String {

@@ -63,7 +63,7 @@ struct CompetitionCenterView: View {
             CreateBetView(viewModel: viewModel)
         }
         .sheet(isPresented: $isCreatingDuel) {
-            // Próximamente...
+            CreateDuelView(viewModel: viewModel)
         }
     }
     
@@ -85,13 +85,13 @@ struct CompetitionCenterView: View {
     }
 }
 
+// --- Vista para la lista de Apuestas (sin cambios) ---
 struct BetsView: View {
     @ObservedObject var viewModel: RoomDetailViewModel
     @State private var wagerAmountString: String = ""
 
     var body: some View {
         ScrollView {
-            // ✅ CAMBIO CLAVE: Se itera sobre viewModel.bets
             if viewModel.bets.isEmpty {
                 emptyStateView
             } else {
@@ -136,11 +136,77 @@ struct BetsView: View {
     }
 }
 
+
+// --- ✅ VISTA PARA LA LISTA DE DUELOS (ACTUALIZADA CON .actionSheet) ---
 struct DuelsView: View {
     @ObservedObject var viewModel: RoomDetailViewModel
+    
+    // Timer que se dispara cada 30 segundos para revisar los duelos.
+    let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
+
     var body: some View {
         ScrollView {
-            Text("Lista de Duelos Activos (Próximamente)").foregroundColor(.white).padding()
+            if viewModel.duels.isEmpty {
+                emptyStateView
+            } else {
+                VStack(spacing: 16) {
+                    ForEach(viewModel.duels) { duel in
+                        DuelCardView(duel: duel, viewModel: viewModel)
+                    }
+                }
+                .padding()
+            }
         }
+        .actionSheet(item: $viewModel.duelToResolve) { duel in
+            createActionSheet(for: duel)
+        }
+        // ✅ CADA VEZ QUE EL TIMER SE DISPARA, LLAMAMOS A LA FUNCIÓN DE CHEQUEO
+        .onReceive(timer) { _ in
+            viewModel.checkForFinishedAdminDuels()
+        }
+        // También lo comprobamos una vez al cargar la vista.
+        .onAppear {
+            viewModel.checkForFinishedAdminDuels()
+        }
+    }
+    
+    private func createActionSheet(for duel: Duel) -> ActionSheet {
+        let challengerName = viewModel.roomMembers.first { $0.uid == duel.challengerId }?.username ?? "Retador"
+        let opponentName = viewModel.roomMembers.first { $0.uid == duel.opponentId }?.username ?? "Oponente"
+        
+        return ActionSheet(
+            title: Text("¿Quién ganó el duelo?"),
+            message: Text(duel.title),
+            buttons: [
+                .default(Text(challengerName)) {
+                    Task { await viewModel.resolveDuelAsAdmin(duel: duel, winnerId: duel.challengerId) }
+                },
+                .default(Text(opponentName)) {
+                    Task { await viewModel.resolveDuelAsAdmin(duel: duel, winnerId: duel.opponentId) }
+                },
+                .default(Text("Empate")) {
+                    Task { await viewModel.resolveDuelAsAdmin(duel: duel, winnerId: nil) }
+                },
+                .cancel()
+            ]
+        )
+    }
+    
+    @ViewBuilder
+    private var emptyStateView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "bolt.horizontal.fill")
+                .font(.system(size: 50))
+                .foregroundColor(.red.opacity(0.6))
+            Text("No hay duelos activos")
+                .font(.title2)
+                .fontWeight(.bold)
+            Text("¡Reta a alguien de la sala pulsando el botón '+'!")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .padding(.top, 80)
     }
 }

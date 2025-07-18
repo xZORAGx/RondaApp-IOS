@@ -34,7 +34,7 @@ class RoomService {
         
         return subject.handleEvents(receiveCancel: { listener.remove() }).eraseToAnyPublisher()
     }
-
+    
     func createBet(_ bet: Bet, inRoomId roomId: String) async throws {
         let roomRef = roomsCollection.document(roomId)
         let newBetRef = roomRef.collection("bets").document(bet.id ?? UUID().uuidString)
@@ -43,7 +43,7 @@ class RoomService {
             let roomDocument: DocumentSnapshot
             do { try roomDocument = transaction.getDocument(roomRef) }
             catch let error as NSError { errorPointer?.pointee = error; return nil }
-
+            
             guard let room = try? roomDocument.data(as: Room.self) else {
                 errorPointer?.pointee = NSError(domain: "AppError", code: 1, userInfo: [NSLocalizedDescriptionKey: "No se pudo decodificar la sala."])
                 return nil
@@ -70,7 +70,7 @@ class RoomService {
             return nil
         }
     }
-
+    
     func placeWager(betId: String, userId: String, amount: Int, inRoomId roomId: String) async throws {
         let roomRef = roomsCollection.document(roomId)
         let betRef = roomRef.collection("bets").document(betId)
@@ -79,7 +79,7 @@ class RoomService {
             let roomDocument: DocumentSnapshot
             do { try roomDocument = transaction.getDocument(roomRef) }
             catch let error as NSError { errorPointer?.pointee = error; return nil }
-
+            
             guard let room = try? roomDocument.data(as: Room.self) else { return nil }
             
             guard let userCredits = room.userCredits[userId], userCredits >= amount else {
@@ -94,12 +94,11 @@ class RoomService {
             return nil
         }
     }
-
-    // ✅ FUNCIÓN CORREGIDA
+    
     func resolveBet(betId: String, newStatus: BetStatus, inRoomId roomId: String) async throws {
         let roomRef = roomsCollection.document(roomId)
         let betRef = roomRef.collection("bets").document(betId)
-
+        
         try await db.runTransaction { (transaction, errorPointer) -> Any? in
             let betDocument: DocumentSnapshot
             do { try betDocument = transaction.getDocument(betRef) }
@@ -124,13 +123,12 @@ class RoomService {
                 transaction.updateData(creditChanges, forDocument: roomRef)
             }
             
-            // ✅ CORRECCIÓN CLAVE: Calculamos la fecha de expiración para el TTL
-            let expirationDate = Date().addingTimeInterval(24 * 60 * 60) // 24 horas desde ahora
+            let expirationDate = Date().addingTimeInterval(24 * 60 * 60)
             let expirationTimestamp = Timestamp(date: expirationDate)
             
             transaction.updateData([
                 "status": newStatus.rawValue,
-                "resolvedAt": expirationTimestamp // Guardamos la fecha de borrado futura
+                "resolvedAt": expirationTimestamp
             ], forDocument: betRef)
             
             return nil
@@ -207,4 +205,268 @@ class RoomService {
         let letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         return String((0..<length).map{ _ in letters.randomElement()! })
     }
+    
+    // --- LÓGICA DE DUELOS ---
+    
+    func listenToDuels(inRoomId roomId: String) -> AnyPublisher<[Duel], Error> {
+        let subject = PassthroughSubject<[Duel], Error>()
+        
+        let listener = roomsCollection.document(roomId).collection("duels")
+            .addSnapshotListener { querySnapshot, error in
+                guard let documents = querySnapshot?.documents else {
+                    if let error = error { subject.send(completion: .failure(error)) }
+                    return
+                }
+                
+                let duels = documents.compactMap { try? $0.data(as: Duel.self) }
+                subject.send(duels)
+            }
+        
+        return subject.handleEvents(receiveCancel: { listener.remove() }).eraseToAnyPublisher()
+    }
+    
+    func createDuel(_ duel: Duel, inRoomId roomId: String) async throws {
+            let roomRef = roomsCollection.document(roomId)
+            let newDuelRef = roomRef.collection("duels").document()
+            
+            try await db.runTransaction { (transaction, errorPointer) -> Any? in
+                let roomDocument: DocumentSnapshot
+                do { try roomDocument = transaction.getDocument(roomRef) }
+                catch let error as NSError { errorPointer?.pointee = error; return nil }
+
+                guard let room = try? roomDocument.data(as: Room.self) else { return nil }
+                
+                guard let challengerCredits = room.userCredits[duel.challengerId], challengerCredits >= duel.wager else {
+                    errorPointer?.pointee = NSError(domain: "AppError", code: 1, userInfo: [NSLocalizedDescriptionKey: "No tienes suficientes créditos para lanzar este reto."])
+                    return nil
+                }
+                
+                transaction.updateData(["userCredits.\(duel.challengerId)": challengerCredits - duel.wager], forDocument: roomRef)
+                
+                do {
+                    try transaction.setData(from: duel, forDocument: newDuelRef)
+                } catch let setDataError as NSError {
+                    errorPointer?.pointee = setDataError
+                    return nil
+                }
+                return nil
+            }
+        }
+        
+        // ✅ NUEVA FUNCIÓN: Aceptar un duelo.
+        func acceptDuel(duel: Duel, inRoomId roomId: String) async throws {
+            let roomRef = roomsCollection.document(roomId)
+            let duelRef = roomRef.collection("duels").document(duel.id!)
+            
+            try await db.runTransaction { (transaction, errorPointer) -> Any? in
+                let roomDocument: DocumentSnapshot
+                do { try roomDocument = transaction.getDocument(roomRef) }
+                catch let error as NSError { errorPointer?.pointee = error; return nil }
+
+                guard let room = try? roomDocument.data(as: Room.self) else { return nil }
+                
+                guard let opponentCredits = room.userCredits[duel.opponentId], opponentCredits >= duel.wager else {
+                    errorPointer?.pointee = NSError(domain: "AppError", code: 2, userInfo: [NSLocalizedDescriptionKey: "No tienes suficientes créditos para aceptar este duelo."])
+                    return nil
+                }
+                
+                // Descontar créditos al oponente y actualizar estado del duelo
+                transaction.updateData(["userCredits.\(duel.opponentId)": opponentCredits - duel.wager], forDocument: roomRef)
+                transaction.updateData(["status": DuelStatus.inProgress.rawValue], forDocument: duelRef)
+                
+                return nil
+            }
+        }
+        
+        // ✅ NUEVA FUNCIÓN: Rechazar un duelo.
+        func declineDuel(duel: Duel, inRoomId roomId: String) async throws {
+            let roomRef = roomsCollection.document(roomId)
+            let duelRef = roomRef.collection("duels").document(duel.id!)
+            
+            try await db.runTransaction { (transaction, errorPointer) -> Any? in
+                // Devolver los créditos al retador
+                transaction.updateData(["userCredits.\(duel.challengerId)": FieldValue.increment(Int64(duel.wager))], forDocument: roomRef)
+                // Borrar el documento del duelo
+                transaction.deleteDocument(duelRef)
+                return nil
+            }
+        }
+
+    
+    func resolveDuel(duel: Duel, winnerId: String?, inRoomId roomId: String) async throws {
+        let roomRef = roomsCollection.document(roomId)
+        let duelRef = roomRef.collection("duels").document(duel.id!)
+        
+        try await db.runTransaction { (transaction, errorPointer) -> Any? in
+            let wager = duel.wager
+            if let winnerId = winnerId {
+                transaction.updateData(["userCredits.\(winnerId)": FieldValue.increment(Int64(wager * 2))], forDocument: roomRef)
+            } else {
+                transaction.updateData([
+                    "userCredits.\(duel.challengerId)": FieldValue.increment(Int64(wager)),
+                    "userCredits.\(duel.opponentId)": FieldValue.increment(Int64(wager))
+                ], forDocument: roomRef)
+            }
+            
+            let expirationDate = Date().addingTimeInterval(24 * 60 * 60)
+            transaction.updateData([
+                "status": DuelStatus.resolved.rawValue,
+                "winnerId": winnerId ?? "draw",
+                "resolvedAt": Timestamp(date: expirationDate)
+            ], forDocument: duelRef)
+            
+            return nil
+        }
+        
+        try await postDuelResultToChat(duel: duel, winnerId: winnerId, inRoomId: roomId)
+    }
+    
+    private func postDuelResultToChat(duel: Duel, winnerId: String?, inRoomId roomId: String) async throws {
+           var messageText = ""
+           let challengerName = (try? await UserService.shared.fetchUser(withId: duel.challengerId))?.username ?? "Jugador 1"
+           let opponentName = (try? await UserService.shared.fetchUser(withId: duel.opponentId))?.username ?? "Jugador 2"
+           
+           if let winnerId = winnerId {
+               let winnerName = (winnerId == duel.challengerId) ? challengerName : opponentName
+               messageText = "¡Duelo finalizado! 🔥\n'\(duel.title)'\nGanador: \(winnerName)\nPremio: \(duel.wager * 2) créditos."
+           } else {
+               messageText = "¡Duelo finalizado en empate! 🤝\n'\(duel.title)'\nSe han devuelto \(duel.wager) créditos a \(challengerName) y a \(opponentName)."
+           }
+           
+           // ✅ CORRECCIÓN: Usamos 'textContent' y definimos el 'mediaType'.
+           let chatMessage: [String: Any] = [
+               "textContent": messageText,
+               "authorId": "system",
+               "timestamp": FieldValue.serverTimestamp(),
+               "mediaType": "text"
+           ]
+           
+           try await roomsCollection.document(roomId).collection("messages").addDocument(data: chatMessage)
+       }
+    func initiateDuelPoll(for duel: Duel, inRoomId roomId: String) async throws {
+        guard let duelId = duel.id else { throw URLError(.badURL) }
+        
+        let roomRef = roomsCollection.document(roomId)
+        let duelRef = roomRef.collection("duels").document(duelId)
+        let newPollRef = roomRef.collection("polls").document()
+        let newChatMessageRef = roomRef.collection("messages").document()
+        
+        let challengerName = (try? await UserService.shared.fetchUser(withId: duel.challengerId))?.username ?? "Retador"
+        let opponentName = (try? await UserService.shared.fetchUser(withId: duel.opponentId))?.username ?? "Oponente"
+        
+        let expirationDate = Date().addingTimeInterval(24 * 60 * 60)
+        let newPoll = Poll(
+            id: newPollRef.documentID,
+            duelId: duelId,
+            question: "¿Quién ganó el duelo: \(challengerName) vs \(opponentName)?",
+            votes: [duel.challengerId: [], duel.opponentId: [], "draw": []],
+            memberCountAtCreation: (try await roomRef.getDocument().data()?["memberIds"] as? [String])?.count ?? 0,
+            expiresAt: Timestamp(date: expirationDate)
+        )
+        
+        let chatMessage: [String: Any] = [
+                    "authorId": "system",
+                    "text": "¡Nueva encuesta para resolver un duelo!",
+                    "pollId": newPoll.id,
+                    "duelId": duel.id, // <-- LÍNEA AÑADIDA
+                    "timestamp": FieldValue.serverTimestamp(),
+                    "mediaType": "poll"
+                ]
+                
+                let batch = db.batch()
+                
+                try batch.setData(from: newPoll, forDocument: newPollRef)
+                batch.setData(chatMessage, forDocument: newChatMessageRef)
+                batch.updateData(["status": DuelStatus.inPoll.rawValue, "pollId": newPoll.id], forDocument: duelRef)
+                
+                try await batch.commit()
+            }
+    
+    // ✅ NUEVA: Escucha los cambios en la subcolección de encuestas
+    func listenToPolls(inRoomId roomId: String) -> AnyPublisher<[Poll], Error> {
+        let subject = PassthroughSubject<[Poll], Error>()
+        let listener = roomsCollection.document(roomId).collection("polls")
+            .addSnapshotListener { querySnapshot, error in
+                guard let documents = querySnapshot?.documents else {
+                    if let error = error { subject.send(completion: .failure(error)) }
+                    return
+                }
+                let polls = documents.compactMap { try? $0.data(as: Poll.self) }
+                subject.send(polls)
+            }
+        return subject.handleEvents(receiveCancel: { listener.remove() }).eraseToAnyPublisher()
+    }
+    
+    // ✅ NUEVA: Registra un voto y resuelve el duelo si hay mayoría
+    func castVote(poll: Poll, duel: Duel, option: String, userId: String, inRoomId roomId: String) async throws {
+        let roomRef = roomsCollection.document(roomId)
+        let pollRef = roomRef.collection("polls").document(poll.id!)
+        let duelRef = roomRef.collection("duels").document(duel.id!)
+        
+        try await db.runTransaction { (transaction, errorPointer) -> Any? in
+            let pollDocument: DocumentSnapshot
+            do { try pollDocument = transaction.getDocument(pollRef) }
+            catch let error as NSError { errorPointer?.pointee = error; return nil }
+            
+            guard var currentPoll = try? pollDocument.data(as: Poll.self) else { return nil }
+
+            let allVoters = currentPoll.votes.values.flatMap { $0 }
+            guard !allVoters.contains(userId) else { return nil }
+            
+            currentPoll.votes[option, default: []].append(userId)
+            transaction.updateData(["votes": currentPoll.votes], forDocument: pollRef)
+            
+            let majorityCount = (currentPoll.memberCountAtCreation / 2) + 1
+            if let voteCount = currentPoll.votes[option]?.count, voteCount >= majorityCount {
+                var creditChanges: [String: Any] = [:]
+                let winnerId = (option == "draw") ? nil : option
+                
+                if let winnerId = winnerId {
+                    creditChanges["userCredits.\(winnerId)"] = FieldValue.increment(Int64(duel.wager * 2))
+                } else {
+                    creditChanges["userCredits.\(duel.challengerId)"] = FieldValue.increment(Int64(duel.wager))
+                    creditChanges["userCredits.\(duel.opponentId)"] = FieldValue.increment(Int64(duel.wager))
+                }
+                
+                if !creditChanges.isEmpty {
+                    transaction.updateData(creditChanges, forDocument: roomRef)
+                }
+
+                let expirationDate = Date().addingTimeInterval(24 * 60 * 60)
+                transaction.updateData([
+                    "status": DuelStatus.resolved.rawValue,
+                    "winnerId": winnerId ?? "draw",
+                    "resolvedAt": Timestamp(date: expirationDate)
+                ], forDocument: duelRef)
+                
+                transaction.deleteDocument(pollRef)
+            }
+            return nil
+        }
+        try await postPollVoteToChat(poll: poll, voterId: userId, option: option, inRoomId: roomId)
+    }
+    
+    // ✅ NUEVA FUNCIÓN AUXILIAR: Crea un mensaje en el chat para notificar un voto.
+    private func postPollVoteToChat(poll: Poll, voterId: String, option: String, inRoomId roomId: String) async throws {
+          let voterName = (try? await UserService.shared.fetchUser(withId: voterId))?.username ?? "Alguien"
+          let optionName: String
+          
+          if option == "draw" {
+              optionName = "Empate"
+          } else {
+              optionName = (try? await UserService.shared.fetchUser(withId: option))?.username ?? "un jugador"
+          }
+          
+          let messageText = "\(voterName) ha votado por \(optionName)."
+          
+          // ✅ CORRECCIÓN: Usamos 'textContent' y definimos el 'mediaType'.
+          let chatMessage: [String: Any] = [
+              "textContent": messageText,
+              "authorId": "system",
+              "timestamp": FieldValue.serverTimestamp(),
+              "mediaType": "text"
+          ]
+          
+          try await roomsCollection.document(roomId).collection("messages").addDocument(data: chatMessage)
+      }
 }

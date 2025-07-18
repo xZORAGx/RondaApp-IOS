@@ -13,6 +13,8 @@ class RoomDetailViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var roomMembers: [User] = []
     @Published var betToWagerOn: Bet?
+    @Published var duels: [Duel] = []
+    @Published var duelToResolve: Duel?
     
     // ✅ Las apuestas ahora se cargan en su propia propiedad desde la subcolección
     @Published var bets: [Bet] = []
@@ -113,6 +115,15 @@ class RoomDetailViewModel: ObservableObject {
                 self?.bets = newBets.sorted(by: { $0.deadline.dateValue() > $1.deadline.dateValue() })
             }
             .store(in: &cancellables)
+        
+        roomService.listenToDuels(inRoomId: roomId)
+                    .sink { completion in
+                         if case .failure(let error) = completion { self.errorMessage = "Error cargando duelos: \(error.localizedDescription)" }
+                    } receiveValue: { [weak self] newDuels in
+                        self?.duels = newDuels.sorted(by: { $0.startTime.dateValue() > $1.startTime.dateValue() })
+                    }
+                    .store(in: &cancellables)
+            
     }
     
     // --- Lógica de la Clasificación y Administración ---
@@ -178,4 +189,96 @@ class RoomDetailViewModel: ObservableObject {
             self.room.drinks = originalDrinks
         }
     }
+    
+    func createDuel(_ duel: Duel) async -> Bool {
+            guard let roomId = room.id else { return false }
+            
+            isLoading = true; errorMessage = nil
+            do {
+                try await roomService.createDuel(duel, inRoomId: roomId)
+                isLoading = false; return true
+            } catch {
+                errorMessage = "Error al crear el duelo: \(error.localizedDescription)"
+                isLoading = false; return false
+            }
+        }
+    
+    func resolveDuelAsAdmin(duel: Duel, winnerId: String?) async {
+        guard let roomId = room.id else {
+            errorMessage = "ID de sala no encontrado."
+            return
+        }
+        
+        self.isLoading = true
+        self.errorMessage = nil
+        
+        do {
+            try await roomService.resolveDuel(duel: duel, winnerId: winnerId, inRoomId: roomId)
+        } catch {
+            self.errorMessage = "Error al resolver el duelo: \(error.localizedDescription)"
+        }
+        
+        self.isLoading = false
+    }
+
+    func startDuelPoll(for duel: Duel) async {
+          guard let roomId = room.id else {
+              errorMessage = "ID de sala no encontrado."
+              return
+          }
+          
+          self.isLoading = true
+          self.errorMessage = nil
+          
+          do {
+              try await roomService.initiateDuelPoll(for: duel, inRoomId: roomId)
+          } catch {
+              self.errorMessage = "Error al crear la encuesta: \(error.localizedDescription)"
+          }
+          
+          self.isLoading = false
+      }
+    
+    func checkForFinishedAdminDuels() {
+            guard let adminId = currentUser?.uid, isUserAdmin else { return }
+            
+            // Buscamos duelos donde el admin participa, su tiempo ha acabado y aún están en progreso.
+            let finishedAdminDuels = duels.filter { duel in
+                let isAdminParticipant = duel.challengerId == adminId || duel.opponentId == adminId
+                let isTimeUp = duel.endTime.dateValue() < Date()
+                return isAdminParticipant && isTimeUp && duel.status == .inProgress
+            }
+            
+            // Si encontramos alguno, iniciamos la encuesta.
+            for duel in finishedAdminDuels {
+                print("Duelo de admin finalizado detectado. Iniciando encuesta para: \(duel.title)")
+                Task {
+                    await startDuelPoll(for: duel)
+                }
+            }
+        }
+    
+    func acceptDuel(duel: Duel) async {
+        guard let roomId = room.id else { return }
+        isLoading = true; errorMessage = nil
+        do {
+            try await roomService.acceptDuel(duel: duel, inRoomId: roomId)
+        } catch {
+            errorMessage = "Error al aceptar el duelo: \(error.localizedDescription)"
+        }
+        isLoading = false
+    }
+    
+    // ✅ NUEVA: Rechazar un duelo
+    func declineDuel(duel: Duel) async {
+        guard let roomId = room.id else { return }
+        isLoading = true; errorMessage = nil
+        do {
+            try await roomService.declineDuel(duel: duel, inRoomId: roomId)
+        } catch {
+            errorMessage = "Error al rechazar el duelo: \(error.localizedDescription)"
+        }
+        isLoading = false
+    }
+    
 }

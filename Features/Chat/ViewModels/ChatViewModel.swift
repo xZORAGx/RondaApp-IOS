@@ -7,6 +7,7 @@ import Firebase
 @MainActor
 class ChatViewModel: ObservableObject {
     
+    // --- Propiedades Existentes ---
     @Published var messages: [Message] = []
     @Published var messageText: String = ""
     @Published var memberProfiles: [String: User] = [:]
@@ -17,6 +18,10 @@ class ChatViewModel: ObservableObject {
     @Published var playingMessageId: String?
     @Published var playbackProgress: Double = 0.0
     
+    // --- ✅ NUEVAS PROPIEDADES PARA DUELOS Y ENCUESTAS ---
+    @Published var duels: [Duel] = []
+    @Published var polls: [String: Poll] = [:] // [PollID: Poll]
+    
     private var recordingTimer: Timer?
     private let room: Room
     let user: User
@@ -25,14 +30,40 @@ class ChatViewModel: ObservableObject {
     init(room: Room, user: User) {
         self.room = room
         self.user = user
-        listenForMessages()
+        // ✅ Renombramos para más claridad, ahora configura TODOS los listeners
+        setupListeners()
         fetchMemberProfiles()
     }
     
-    private func listenForMessages() {
+    // ✅ FUNCIÓN ACTUALIZADA PARA INCLUIR TODOS LOS LISTENERS
+    private func setupListeners() {
         guard let roomId = room.id else { return }
+        
+        // 1. Listener para Mensajes (ya lo tenías)
         ChatService.shared.listenForMessages(roomId: roomId)
-            .sink { _ in } receiveValue: { [weak self] messages in self?.messages = messages }
+            .sink { _ in } receiveValue: { [weak self] messages in
+                self?.messages = messages
+            }
+            .store(in: &cancellables)
+            
+        // 2. Listener para Duelos (nuevo)
+        RoomService.shared.listenToDuels(inRoomId: roomId)
+            .sink { _ in } receiveValue: { [weak self] duels in
+                self?.duels = duels
+            }
+            .store(in: &cancellables)
+            
+        // 3. Listener para Encuestas (nuevo)
+        RoomService.shared.listenToPolls(inRoomId: roomId)
+            .sink { _ in } receiveValue: { [weak self] polls in
+                var pollsDict: [String: Poll] = [:]
+                for poll in polls {
+                    if let pollId = poll.id {
+                        pollsDict[pollId] = poll
+                    }
+                }
+                self?.polls = pollsDict
+            }
             .store(in: &cancellables)
     }
     
@@ -52,6 +83,27 @@ class ChatViewModel: ObservableObject {
         self.messageText = ""
         Task { try? await ChatService.shared.sendMessage(message, inRoomId: roomId) }
     }
+    
+    // ✅ NUEVA FUNCIÓN PARA EMITIR UN VOTO
+    func castVote(on poll: Poll, for option: String) async {
+        guard let pollId = poll.id,
+              let roomId = room.id,
+              let duel = duels.first(where: { $0.id == poll.duelId }) else { return }
+        
+        do {
+            try await RoomService.shared.castVote(
+                poll: poll,
+                duel: duel,
+                option: option,
+                userId: user.uid,
+                inRoomId: roomId
+            )
+        } catch {
+            print("Error al votar: \(error.localizedDescription)")
+        }
+    }
+    
+    // --- Lógica de Audio (sin cambios) ---
     
     private func sendMediaMessage(data: Data, type: MediaType, duration: TimeInterval? = nil, samples: [Float]? = nil) async {
         guard let roomId = room.id else { return }
