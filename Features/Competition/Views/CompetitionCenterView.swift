@@ -129,8 +129,8 @@ struct BetsView: View {
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Image(systemName: "ticket.fill").font(.system(size: 50)).foregroundColor(.purple.opacity(0.6))
-            Text("No hay apuestas activas").font(.title2).fontWeight(.bold)
-            Text("¡Anímate a proponer la primera apuesta pulsando el botón '+'!").font(.subheadline).foregroundColor(.secondary).multilineTextAlignment(.center)
+            Text("No hay apuestas activas").font(.title2).fontWeight(.bold).foregroundColor(.white)
+            Text("¡Anímate a proponer la primera apuesta pulsando el botón '+'!").font(.subheadline).foregroundColor(.white).multilineTextAlignment(.center)
         }
         .padding().padding(.top, 80)
     }
@@ -201,9 +201,10 @@ struct DuelsView: View {
             Text("No hay duelos activos")
                 .font(.title2)
                 .fontWeight(.bold)
+                .foregroundColor(.white)
             Text("¡Reta a alguien de la sala pulsando el botón '+'!")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(.white)
                 .multilineTextAlignment(.center)
         }
         .padding()

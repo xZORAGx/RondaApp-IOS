@@ -180,7 +180,14 @@ class RoomService {
         guard let roomId = room.id else { return }
         let roomRef = roomsCollection.document(roomId)
         let scoreFieldPath = "scores.\(userId).\(drinkId)"
+
+        // 1. Actualizar la puntuación en la sala general
         try await roomRef.setData(["scores": [userId: [drinkId: FieldValue.increment(Int64(1))]]], merge: true)
+
+        // 2. Verificar y actualizar eventos activos
+        if let activeEvent = try? await EventService.shared.findActiveEvent(forRoomId: roomId) {
+            try await EventService.shared.addDrinkToEvent(eventId: activeEvent.id!, inRoomId: roomId, userId: userId, drinkId: drinkId)
+        }
     }
     
     func updateRoomPhotoURL(roomId: String, url: String) async throws {
@@ -511,7 +518,7 @@ class RoomService {
         let roomRef = roomsCollection.document(roomId)
         let messagesRef = roomRef.collection("messages").document()
         
-        // 2. Subimos la imagen a Storage PRIMERO. Si esto falla, no hacemos nada más.
+        // 2. Subimos la imagen a Storage PRIMERO.
         var photoURL: String?
         if let data = imageData {
             photoURL = try await StorageService.shared.uploadCheckInImage(
@@ -534,29 +541,41 @@ class RoomService {
             authorId: user.uid, timestamp: newCheckIn.timestamp, mediaType: .checkIn, checkInId: checkInId
         )
         
-        // 5. Ejecutamos la transacción SÓLO para escribir en Firestore.
-        // Esto es más rápido y seguro.
+        // 5. Buscamos el evento activo ANTES de la transacción.
+        let activeEvent = try? await EventService.shared.findActiveEvent(forRoomId: roomId)
+
+        // 6. Ejecutamos la transacción.
         try await db.runTransaction { (transaction, errorPointer) -> Any? in
             let scoreFieldPath = "scores.\(user.uid).\(drinkId)"
             
-            // Operación 1: Actualizar la puntuación.
+            // Operación 1: Actualizar la puntuación de la sala.
             transaction.updateData([scoreFieldPath: FieldValue.increment(Int64(1))], forDocument: roomRef)
             
             // Operación 2: Guardar el nuevo CheckIn.
             do {
                 try transaction.setData(from: newCheckIn, forDocument: newCheckInRef)
-            } catch {
-                errorPointer?.pointee = error as NSError; return nil
-            }
+            } catch { errorPointer?.pointee = error as NSError; return nil }
             
             // Operación 3: Guardar el mensaje del chat si es necesario.
             if shouldCreateMessage {
                 do {
                     try transaction.setData(from: newMessage, forDocument: messagesRef)
+                } catch { errorPointer?.pointee = error as NSError; return nil }
+            }
+
+            // Operación 4: Si hay un evento activo, añadir la bebida.
+            if let event = activeEvent, let eventId = event.id {
+                let eventRef = self.db.collection("rooms").document(roomId).collection("events").document(eventId)
+                let newDrinkEntry = EventDrinkEntry(userId: user.uid, drinkId: drinkId, timestamp: Date())
+                do {
+                    let drinkData = try newDrinkEntry.asDictionary()
+                    transaction.updateData(["drinksConsumed": FieldValue.arrayUnion([drinkData])], forDocument: eventRef)
                 } catch {
-                    errorPointer?.pointee = error as NSError; return nil
+                    errorPointer?.pointee = error as NSError
+                    return nil
                 }
             }
+            
             return nil
         }
     }

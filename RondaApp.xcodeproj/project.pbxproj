@@ -40,6 +40,10 @@
 		63B3B34F2E256D7400F4D033 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 630923572E21755D00F3BF73 /* GoogleService-Info.plist */; };
 		63B3B3502E256D7400F4D033 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 630923572E21755D00F3BF73 /* GoogleService-Info.plist */; };
 		63B3B3DE2E28041F00F4D033 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 63B3B3DD2E28041F00F4D033 /* GoogleMobileAds */; };
+		63B3B98F2E2D3FD300F4D033 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 63B3B98D2E2D3FC500F4D033 /* AppIntents.framework */; };
+		63B3BAC82E2E9F1400F4D033 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 63B3B8712E2D334A00F4D033 /* SwiftUI.framework */; };
+		63B3BAE22E2EF45700F4D033 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 63B3BAE12E2EF45700F4D033 /* Lottie */; };
+		
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,11 +63,27 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		63B3B8842E2D334C00F4D033 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		630922D02E20382B00F3BF73 /* RondaApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RondaApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		630922DD2E20382C00F3BF73 /* RondaAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RondaAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		630922E72E20382C00F3BF73 /* RondaAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RondaAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		630923572E21755D00F3BF73 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		63B3B86F2E2D334A00F4D033 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		63B3B8712E2D334A00F4D033 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		63B3B98D2E2D3FC500F4D033 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -134,6 +154,7 @@
 				630923152E2073C100F3BF73 /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */,
 				6309231F2E2073C100F3BF73 /* FirebaseCore in Frameworks */,
 				6309230D2E2073C100F3BF73 /* FirebaseAnalytics in Frameworks */,
+				
 				630923542E2173E200F3BF73 /* GoogleSignInSwift in Frameworks */,
 				630923332E2073C100F3BF73 /* FirebaseMLModelDownloader in Frameworks */,
 				630923252E2073C100F3BF73 /* FirebaseDynamicLinks in Frameworks */,
@@ -144,6 +165,7 @@
 				630923292E2073C100F3BF73 /* FirebaseFirestoreCombine-Community in Frameworks */,
 				630923522E2173E200F3BF73 /* GoogleSignIn in Frameworks */,
 				6309233F2E2073C100F3BF73 /* FirebaseVertexAI in Frameworks */,
+				
 				6309232F2E2073C100F3BF73 /* FirebaseInAppMessaging-Beta in Frameworks */,
 				6309232D2E2073C100F3BF73 /* FirebaseFunctionsCombine-Community in Frameworks */,
 				630923172E2073C100F3BF73 /* FirebaseAppCheck in Frameworks */,
@@ -151,7 +173,9 @@
 				630923392E2073C100F3BF73 /* FirebaseRemoteConfig in Frameworks */,
 				6309230F2E2073C100F3BF73 /* FirebaseAnalyticsCore in Frameworks */,
 				6309230B2E2073C100F3BF73 /* FirebaseAI in Frameworks */,
+				63B3BAC82E2E9F1400F4D033 /* SwiftUI.framework in Frameworks */,
 				630923372E2073C100F3BF73 /* FirebasePerformance in Frameworks */,
+				63B3B98F2E2D3FD300F4D033 /* AppIntents.framework in Frameworks */,
 				630923212E2073C100F3BF73 /* FirebaseCrashlytics in Frameworks */,
 				630923192E2073C100F3BF73 /* FirebaseAppDistribution-Beta in Frameworks */,
 				6309231D2E2073C100F3BF73 /* FirebaseAuthCombine-Community in Frameworks */,
@@ -188,6 +212,7 @@
 				630922D22E20382B00F3BF73 /* RondaApp */,
 				630922E02E20382C00F3BF73 /* RondaAppTests */,
 				630922EA2E20382C00F3BF73 /* RondaAppUITests */,
+				63B3B86E2E2D334A00F4D033 /* Frameworks */,
 				630922D12E20382B00F3BF73 /* Products */,
 				630923572E21755D00F3BF73 /* GoogleService-Info.plist */,
 			);
@@ -203,6 +228,16 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		63B3B86E2E2D334A00F4D033 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				63B3B98D2E2D3FC500F4D033 /* AppIntents.framework */,
+				63B3B86F2E2D334A00F4D033 /* WidgetKit.framework */,
+				63B3B8712E2D334A00F4D033 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -213,6 +248,7 @@
 				630922CC2E20382B00F3BF73 /* Sources */,
 				630922CD2E20382B00F3BF73 /* Frameworks */,
 				630922CE2E20382B00F3BF73 /* Resources */,
+				63B3B8842E2D334C00F4D033 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
@@ -258,6 +294,8 @@
 				630923512E2173E200F3BF73 /* GoogleSignIn */,
 				630923532E2173E200F3BF73 /* GoogleSignInSwift */,
 				63B3B3DD2E28041F00F4D033 /* GoogleMobileAds */,
+				63B3BAE12E2EF45700F4D033 /* Lottie */,
+				63B3BAE32E2EF45700F4D033 /* Lottie-Dynamic */,
 			);
 			productName = RondaApp;
 			productReference = 630922D02E20382B00F3BF73 /* RondaApp.app */;
@@ -345,6 +383,7 @@
 				630923092E2073C100F3BF73 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				630923502E2173E200F3BF73 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				63B3B3DC2E28041F00F4D033 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
+				63B3BAE02E2EF45700F4D033 /* XCRemoteSwiftPackageReference "lottie-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 630922D12E20382B00F3BF73 /* Products */;
@@ -752,6 +791,7 @@
 				minimumVersion = 12.7.0;
 			};
 		};
+		
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -905,6 +945,8 @@
 			package = 63B3B3DC2E28041F00F4D033 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
 			productName = GoogleMobileAds;
 		};
+		
+		
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 630922C82E20382A00F3BF73 /* Project object */;

@@ -164,6 +164,11 @@ class RoomDetailViewModel: ObservableObject {
             do {
                 guard let userId = currentUser?.uid else { return }
                 try await roomService.addDrinkForUser(userId: userId, drinkId: drink.id, in: room)
+
+                // Also add the drink to the active event, if one exists
+                if let activeEvent = try await EventService.shared.findActiveEvent(forRoomId: room.id!) {
+                    try await EventService.shared.addDrinkToEvent(eventId: activeEvent.id!, inRoomId: room.id!, userId: userId, drinkId: drink.id)
+                }
             } catch {
                 self.errorMessage = "No se pudo añadir la bebida: \(error.localizedDescription)"
             }

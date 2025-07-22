@@ -60,13 +60,15 @@ struct RoomDetailView: View {
                 }
             
             // Pestaña 5: Eventos
-            EventsView()
+            EventsView(roomId: viewModel.room.id ?? "")
                 .tabItem {
                     Label("Eventos", systemImage: "calendar")
                 }
         }
         .navigationTitle(viewModel.room.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { activeSheet = .invite }) {

@@ -17,6 +17,8 @@ struct ChatView: View {
             }
             .navigationTitle("Chat de la Sala")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
     }
     
     // MARK: - Sub-vistas
@@ -87,15 +89,7 @@ struct ChatView: View {
         .padding(.vertical, 8)
         .background(.ultraThinMaterial)
         .clipShape(Capsule())
-        .padding(.horizontal)
         .padding(.top, 5)
-        .background(
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .ignoresSafeArea()
-                .frame(height: 50)
-            , alignment: .bottom
-        )
     }
     
     private func formatTime(_ time: TimeInterval) -> String {

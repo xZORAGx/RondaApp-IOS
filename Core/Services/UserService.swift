@@ -65,4 +65,10 @@ class UserService {
         // Usamos el UID del usuario como ID del documento y guardamos el objeto completo.
         try usersCollection.document(user.uid).setData(from: user, merge: true)
     }
+
+    /// Obtiene todos los usuarios de la base de datos.
+    func fetchAllUsers() async throws -> [User] {
+        let snapshot = try await usersCollection.getDocuments()
+        return snapshot.documents.compactMap { try? $0.data(as: User.self) }
+    }
 }
