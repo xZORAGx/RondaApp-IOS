@@ -51,6 +51,10 @@ class SessionManager: ObservableObject {
         }
     }
     
+    // Fichero: RoomService.swift (Añade esta función dentro de la clase)
+
+
+    
     private func handleUserChange(firebaseUser: FirebaseAuth.User?) async {
         guard let firebaseUser = firebaseUser else {
             self.sessionState = .loggedOut

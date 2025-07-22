@@ -180,10 +180,10 @@ class RoomService {
         guard let roomId = room.id else { return }
         let roomRef = roomsCollection.document(roomId)
         let scoreFieldPath = "scores.\(userId).\(drinkId)"
-
+        
         // 1. Actualizar la puntuación en la sala general
         try await roomRef.setData(["scores": [userId: [drinkId: FieldValue.increment(Int64(1))]]], merge: true)
-
+        
         // 2. Verificar y actualizar eventos activos
         if let activeEvent = try? await EventService.shared.findActiveEvent(forRoomId: roomId) {
             try await EventService.shared.addDrinkToEvent(eventId: activeEvent.id!, inRoomId: roomId, userId: userId, drinkId: drinkId)
@@ -503,6 +503,12 @@ class RoomService {
         return subject.handleEvents(receiveCancel: { listener.remove() }).eraseToAnyPublisher()
     }
     
+    // Fichero: RoomService.swift (Añade esta función)
+
+    func fetchRoom(withId roomId: String) async throws -> Room {
+        return try await roomsCollection.document(roomId).getDocument(as: Room.self)
+    }
+    
     // ✅ FUNCIÓN ACTUALIZADA: Ahora escribe en la subcolección
     func createCheckIn(
         for user: User,
@@ -511,7 +517,9 @@ class RoomService {
         caption: String?,
         imageData: Data?,
         location: CLLocation?
-    ) async throws {
+    )
+    
+    async throws {
         // 1. Preparamos todas las referencias y datos necesarios.
         let newCheckInRef = roomsCollection.document(roomId).collection("checkIns").document()
         let checkInId = newCheckInRef.documentID
@@ -543,7 +551,7 @@ class RoomService {
         
         // 5. Buscamos el evento activo ANTES de la transacción.
         let activeEvent = try? await EventService.shared.findActiveEvent(forRoomId: roomId)
-
+        
         // 6. Ejecutamos la transacción.
         try await db.runTransaction { (transaction, errorPointer) -> Any? in
             let scoreFieldPath = "scores.\(user.uid).\(drinkId)"
@@ -568,7 +576,7 @@ class RoomService {
                 let eventRef = self.db.collection("rooms").document(roomId).collection("events").document(eventId)
                 let newDrinkEntry = EventDrinkEntry(userId: user.uid, drinkId: drinkId, timestamp: Date())
                 do {
-                    let drinkData = try newDrinkEntry.asDictionary()
+                    let drinkData = try Firestore.Encoder().encode(newDrinkEntry)
                     transaction.updateData(["drinksConsumed": FieldValue.arrayUnion([drinkData])], forDocument: eventRef)
                 } catch {
                     errorPointer?.pointee = error as NSError
@@ -576,8 +584,10 @@ class RoomService {
                 }
             }
             
+            // ▼▼▼ LÍNEA AÑADIDA PARA LA SOLUCIÓN ▼▼▼
+            // Si llegamos hasta aquí, todas las operaciones han tenido éxito.
             return nil
         }
+        
     }
-  }
-
+}

@@ -35,11 +35,5 @@ struct EventDrinkEntry: Codable, Identifiable, Equatable {
         lhs.id == rhs.id
     }
 
-    func asDictionary() throws -> [String: Any] {
-        let data = try JSONEncoder().encode(self)
-        guard let dictionary = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any] else {
-            throw NSError(domain: "InvalidCasting", code: 0, userInfo: [NSLocalizedDescriptionKey: "Cannot cast to [String: Any]"])
-        }
-        return dictionary
-    }
+    
 }

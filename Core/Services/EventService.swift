@@ -72,25 +72,48 @@ class EventService {
         let newDrinkEntry = EventDrinkEntry(userId: userId, drinkId: drinkId, timestamp: Date())
 
         do {
-            let drinkData = try newDrinkEntry.asDictionary()
+            // ▼▼▼ CAMBIO CLAVE AQUÍ ▼▼▼
+            // 1. Usamos el codificador de Firestore para convertir el objeto a un diccionario.
+            // Esto se asegurará de que el 'Date' se convierta en un 'Timestamp'.
+            let drinkData = try Firestore.Encoder().encode(newDrinkEntry)
+            
+            // 2. Usamos arrayUnion con el diccionario ya codificado correctamente.
             try await eventRef.updateData([
                 "drinksConsumed": FieldValue.arrayUnion([drinkData])
             ])
-            print("Drink \(drinkId) added for user \(userId) to event \(eventId) in room \(roomId)")
+            print("Bebida \(drinkId) añadida para el usuario \(userId) al evento \(eventId) en la sala \(roomId)")
         } catch {
-            print("Error adding drink to event \(eventId) in room \(roomId): \(error.localizedDescription)")
+            print("Error al añadir la bebida al evento \(eventId) en la sala \(roomId): \(error.localizedDescription)")
             throw error
         }
     }
 
+    // Fichero: EventService.swift (Versión corregida)
+
     func findActiveEvent(forRoomId roomId: String) async throws -> Event? {
         let now = Date()
+        
+        // 1. Hacemos una consulta a Firestore con UN SOLO filtro de rango.
+        // Pedimos todos los eventos que ya han comenzado y que aún no han terminado.
+        // Ordenamos por fecha de inicio para coger el más reciente si hubiera varios.
         let query = db.collection("rooms").document(roomId).collection("events")
             .whereField("startDate", isLessThanOrEqualTo: now)
-            .whereField("endDate", isGreaterThanOrEqualTo: now)
-            .limit(to: 1)
+            .order(by: "startDate", descending: true)
 
         let snapshot = try await query.getDocuments()
-        return try snapshot.documents.first?.data(as: Event.self)
+        
+        // 2. Decodificamos todos los eventos que cumplen el primer filtro.
+        let possibleEvents = snapshot.documents.compactMap { try? $0.data(as: Event.self) }
+        
+        // 3. Filtramos en el CÓDIGO para aplicar la segunda condición.
+        // Usamos la propiedad `isActive` que ya tienes en tu modelo `Event`.
+        let activeEvent = possibleEvents.first { event in
+            // El `event.isActive` comprueba si "now" está entre startDate y endDate.
+            // Esto es más eficiente que comprobar solo la endDate.
+            return event.isActive
+        }
+        
+        // 4. Devolvemos el evento que cumple AMBAS condiciones.
+        return activeEvent
     }
 }

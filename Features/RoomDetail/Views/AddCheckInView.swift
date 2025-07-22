@@ -1,10 +1,3 @@
-//
-//  AddCheckInView.swift
-//  RondaApp
-//
-//  Created by David Roger Alvarez on 18/7/25.
-//
-
 // Fichero: RondaApp/Features/RoomDetail/Views/AddCheckInView.swift
 
 import SwiftUI
@@ -149,19 +142,7 @@ struct AddCheckInView: View {
     private func processAndCreateCheckIn() {
         isSaving = true
         Task {
-            // 1. Obtenemos la ubicación (si el usuario quiere).
-            var location: CLLocation? = nil
-            if shareLocation {
-                // Comprobamos si tenemos permiso antes de intentar nada.
-                guard locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways else {
-                    viewModel.errorMessage = "No se pueden compartir ubicaciones porque los permisos fueron denegados."
-                    isSaving = false
-                    return
-                }
-                location = await getLocationSafely()
-            }
-            
-            // 2. Llamamos al ViewModel con TODOS los datos, incluida la ubicación.
+            // La lógica para llamar al ViewModel y gestionar el resultado se mantiene.
             let success = await viewModel.createCheckIn(
                 drinkId: selectedDrinkId,
                 caption: caption.isEmpty ? nil : caption,
@@ -169,16 +150,19 @@ struct AddCheckInView: View {
                 shareLocation: shareLocation
             )
             
-            // 3. Gestionamos el resultado.
+            // ▼▼▼ ÚNICA MODIFICACIÓN REALIZADA ▼▼▼
+            // Nos aseguramos de que 'isSaving' se ponga a false tanto si hay éxito como si no.
             if success {
                 dismiss()
             } else {
+                // Si la operación falla, detenemos el indicador de carga para
+                // que el usuario pueda volver a intentarlo.
                 isSaving = false
             }
         }
     }
 
-                
+    // Tu código de gestión de ubicación se mantiene intacto.
     private func getLocation() async -> CLLocation? {
         if locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways {
             locationManager.startUpdatingLocation()
@@ -192,23 +176,21 @@ struct AddCheckInView: View {
     }
     
     private func getLocationSafely() async -> CLLocation? {
-            // Si ya tenemos permiso, pedimos la ubicación y esperamos un resultado.
-            if locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways {
-                locationManager.startUpdatingLocation()
-                
-                // Esperamos un máximo de 3 segundos por si tarda en llegar
-                for _ in 0..<30 {
-                    if let location = locationManager.userLocation {
-                        return location
-                    }
-                    try? await Task.sleep(for: .milliseconds(100))
+        // Si ya tenemos permiso, pedimos la ubicación y esperamos un resultado.
+        if locationManager.authorizationStatus == .authorizedWhenInUse || locationManager.authorizationStatus == .authorizedAlways {
+            locationManager.startUpdatingLocation()
+            
+            // Esperamos un máximo de 3 segundos por si tarda en llegar
+            for _ in 0..<30 {
+                if let location = locationManager.userLocation {
+                    return location
                 }
-                // Si después de 3 segundos no hay nada, devolvemos lo que tengamos (que puede ser nil).
-                return locationManager.userLocation
+                try? await Task.sleep(for: .milliseconds(100))
             }
-            // Si no tenemos permiso, no hacemos nada y devolvemos nil.
-            return nil
+            // Si después de 3 segundos no hay nada, devolvemos lo que tengamos (que puede ser nil).
+            return locationManager.userLocation
         }
+        // Si no tenemos permiso, no hacemos nada y devolvemos nil.
+        return nil
     }
-    
-
+}

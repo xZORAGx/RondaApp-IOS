@@ -42,8 +42,6 @@
 		63B3B3DE2E28041F00F4D033 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 63B3B3DD2E28041F00F4D033 /* GoogleMobileAds */; };
 		63B3B98F2E2D3FD300F4D033 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 63B3B98D2E2D3FC500F4D033 /* AppIntents.framework */; };
 		63B3BAC82E2E9F1400F4D033 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 63B3B8712E2D334A00F4D033 /* SwiftUI.framework */; };
-		63B3BAE22E2EF45700F4D033 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 63B3BAE12E2EF45700F4D033 /* Lottie */; };
-		
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -154,7 +152,6 @@
 				630923152E2073C100F3BF73 /* FirebaseAnalyticsWithoutAdIdSupport in Frameworks */,
 				6309231F2E2073C100F3BF73 /* FirebaseCore in Frameworks */,
 				6309230D2E2073C100F3BF73 /* FirebaseAnalytics in Frameworks */,
-				
 				630923542E2173E200F3BF73 /* GoogleSignInSwift in Frameworks */,
 				630923332E2073C100F3BF73 /* FirebaseMLModelDownloader in Frameworks */,
 				630923252E2073C100F3BF73 /* FirebaseDynamicLinks in Frameworks */,
@@ -165,7 +162,6 @@
 				630923292E2073C100F3BF73 /* FirebaseFirestoreCombine-Community in Frameworks */,
 				630923522E2173E200F3BF73 /* GoogleSignIn in Frameworks */,
 				6309233F2E2073C100F3BF73 /* FirebaseVertexAI in Frameworks */,
-				
 				6309232F2E2073C100F3BF73 /* FirebaseInAppMessaging-Beta in Frameworks */,
 				6309232D2E2073C100F3BF73 /* FirebaseFunctionsCombine-Community in Frameworks */,
 				630923172E2073C100F3BF73 /* FirebaseAppCheck in Frameworks */,
@@ -294,8 +290,6 @@
 				630923512E2173E200F3BF73 /* GoogleSignIn */,
 				630923532E2173E200F3BF73 /* GoogleSignInSwift */,
 				63B3B3DD2E28041F00F4D033 /* GoogleMobileAds */,
-				63B3BAE12E2EF45700F4D033 /* Lottie */,
-				63B3BAE32E2EF45700F4D033 /* Lottie-Dynamic */,
 			);
 			productName = RondaApp;
 			productReference = 630922D02E20382B00F3BF73 /* RondaApp.app */;
@@ -383,7 +377,6 @@
 				630923092E2073C100F3BF73 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				630923502E2173E200F3BF73 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				63B3B3DC2E28041F00F4D033 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
-				63B3BAE02E2EF45700F4D033 /* XCRemoteSwiftPackageReference "lottie-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 630922D12E20382B00F3BF73 /* Products */;
@@ -590,7 +583,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RondaApp/RondaApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4.1;
+				CURRENT_PROJECT_VERSION = 4.2;
 				DEVELOPMENT_TEAM = 9CPPZ582U3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -609,7 +602,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.3;
+				MARKETING_VERSION = 3.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tupuebloconecta.rondaapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -625,7 +618,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RondaApp/RondaApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4.1;
+				CURRENT_PROJECT_VERSION = 4.2;
 				DEVELOPMENT_TEAM = 9CPPZ582U3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -644,7 +637,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.3;
+				MARKETING_VERSION = 3.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tupuebloconecta.rondaapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -791,7 +784,6 @@
 				minimumVersion = 12.7.0;
 			};
 		};
-		
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -945,8 +937,6 @@
 			package = 63B3B3DC2E28041F00F4D033 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
 			productName = GoogleMobileAds;
 		};
-		
-		
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 630922C82E20382A00F3BF73 /* Project object */;
